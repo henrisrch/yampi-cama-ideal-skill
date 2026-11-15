@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marcações da Cama Ideal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f9f8f3; --text:#4f0f22; --muted:#87636d; --line:#e7e6db; --dot:#f3f2ec; --card:#fff;
+  --ok:#3f6b4a; --ok-bg:#e8f0ea; --warn:#8a6d1f; --warn-bg:#f6efd9; --err:#a3202f;
+  --r:8px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:Inter,sans-serif;font-size:16px;line-height:1.5}
+.wrap{max-width:1160px;margin:0 auto;padding:24px 16px 72px}
+header h1{font-size:26px;margin:0;font-weight:600}
+header p{margin:2px 0 0;color:var(--muted)}
+h2{font-size:20px;margin:0 0 6px;font-weight:600}
+h3{font-size:16px;margin:0 0 6px;font-weight:600}
+.lead{color:var(--muted);margin:0 0 18px}
+.small{font-size:14px;color:var(--muted)}
+button{font:inherit;cursor:pointer;border-radius:var(--r);border:1px solid var(--text);background:var(--card);color:var(--text);padding:10px 18px;min-height:44px;transition:background .15s,color .15s,border-color .15s}
+button:hover{background:var(--line)}
+button.primary{background:var(--text);color:var(--bg)}
+button.primary:hover{background:#6a1f35}
+button.link{border:0;background:transparent;text-decoration:underline;padding:6px 8px;min-height:44px;color:var(--text)}
+button.link:hover{background:var(--line)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,.dot:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+input[type=text],input[type=url],textarea{width:100%;font:inherit;color:var(--text);background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;min-height:44px}
+textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+label{display:block;font-weight:500;margin-bottom:4px}
+
+/* stepper */
+.stepper{display:flex;gap:8px;list-style:none;padding:0;margin:20px 0 24px;flex-wrap:wrap}
+.stepper li{flex:1 1 150px}
+.stepper button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border-color:var(--line);background:var(--card)}
+.stepper .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.stepper .on button{border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.stepper .on .n{background:var(--text);color:var(--bg)}
+.stepper .done .n{background:var(--ok);color:#fff}
+
+/* messages */
+.note{border-radius:var(--r);padding:10px 14px;margin:0 0 14px;font-size:15px}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+.note.ok{background:var(--ok-bg);color:var(--ok)}
+.note.err{background:#f8e3e5;color:var(--err)}
+.note .row{margin-top:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:15px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+.thumb.sem{display:flex;align-items:center;justify-content:center;color:var(--muted)}
+
+/* step 1 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.cama{display:block;text-align:left;padding:0;overflow:hidden;background:var(--card);border-color:var(--line);width:100%}
+.cama:hover{border-color:var(--text);background:var(--card);box-shadow:0 4px 14px rgba(79,15,34,.12)}
+.cama .ph{position:relative;aspect-ratio:4/3;background:var(--line);overflow:hidden}
+.cama .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.cama .ph.empty{display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;font-weight:600;font-size:18px;color:var(--muted);background:linear-gradient(135deg,#efeee4,#e2dfd0)}
+.cama .body{padding:12px 14px 14px}
+.cama .nome{font-weight:600;font-size:17px}
+.cama .estado{font-size:14px;color:var(--muted);margin-top:2px}
+.badge{position:absolute;left:10px;top:10px;background:var(--text);color:var(--bg);font-size:12px;padding:3px 10px;border-radius:99px}
+.skel{height:230px;border-radius:var(--r);background:linear-gradient(90deg,var(--line),#f1f0e8,var(--line));background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+
+/* step 2 */
+.work{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+@media(max-width:900px){.work{grid-template-columns:minmax(0,1fr)}}
+.seg{display:inline-flex;border:1px solid var(--text);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.seg button{border:0;border-radius:0;background:var(--card)}
+.seg button[aria-pressed=true]{background:var(--text);color:var(--bg)}
+.guide{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--text);border-radius:var(--r);padding:12px 14px;margin-bottom:12px}
+.guide b{font-weight:600}
+.stage{display:flex;justify-content:center}
+.shell{width:100%;max-width:634px}
+.shell.m{max-width:392px;border:8px solid var(--text);border-radius:30px;padding:0;overflow:hidden;background:var(--text)}
+.shell.m .frame{border-radius:20px}
+.frame{position:relative;width:100%;aspect-ratio:634/740;background:#e7e6db;cursor:crosshair;user-select:none;touch-action:manipulation;overflow:visible}
+.frame.m{aspect-ratio:402/469}
+.frame>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none;border-radius:inherit}
+.dot{position:absolute;width:32px;height:32px;padding:0;min-height:0;border:0;border-radius:50%;background:var(--dot);transform:translate(-50%,-50%);cursor:grab;touch-action:none;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.dot:hover{background:var(--dot)}
+.dot::before,.dot::after{content:"";position:absolute;left:50%;top:50%;background:var(--text);transform:translate(-50%,-50%)}
+.dot::before{width:12px;height:2px}.dot::after{width:2px;height:12px}
+.dot.sel{box-shadow:0 0 0 2px var(--dot),0 0 0 4px var(--text);z-index:3}
+.dot.ghost{opacity:.55}
+.dot.drag{cursor:grabbing}
+.dot .nn{position:absolute;left:24px;top:-9px;min-width:18px;height:18px;padding:0 4px;background:var(--text);color:var(--bg);font-size:11px;line-height:18px;border-radius:9px;text-align:center}
+.dot .tip{display:none;position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12px;line-height:16px;padding:4px 8px;border-radius:6px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;z-index:5;pointer-events:none}
+.dot:hover .tip,.dot:focus-visible .tip{display:block}
+.frame.mini{max-width:280px;cursor:default}
+.frame.mini .dot{width:20px;height:20px;pointer-events:none}
+.frame.mini .dot::before{width:8px}.frame.mini .dot::after{height:8px}
+.frame.mini .dot .nn,.frame.mini .dot .tip{display:none}
+.nophoto{display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--muted);height:100%;position:absolute;inset:0}
+.plist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.peca{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:10px;cursor:pointer}
+.peca.sel{border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.peca .top{display:flex;gap:12px;align-items:center}
+.thumb{flex:none;width:56px;height:56px;border-radius:6px;object-fit:cover;background:var(--line)}
+.peca .nm{font-weight:500;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.est{font-size:14px;color:var(--muted)}
+.est.ok{color:var(--ok)}
+.acts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:24px}
+.saved{font-size:13px;color:var(--muted)}
+
+/* step 3 */
+.sum{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;margin-bottom:20px}
+.sum .mw{flex:0 1 280px;min-width:0;width:100%;max-width:280px}
+.sum .tx{flex:1 1 260px;min-width:0}
+.big{font-size:18px;padding:16px 28px;min-height:56px}
+.copied{font-size:24px;font-weight:600;color:var(--ok);min-height:36px;margin:10px 0 0}
+.opts.one{grid-template-columns:1fr}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+@media(max-width:760px){.opts{grid-template-columns:1fr}}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.opt ol{margin:8px 0 0;padding-left:20px}
+.opt li{margin-bottom:4px}
+details{margin-top:16px}
+summary{cursor:pointer;color:var(--muted);padding:8px 0;min-height:44px}
+.tech{margin-top:48px;border-top:1px solid var(--line);padding-top:8px}
+.tech .box{display:grid;gap:14px;padding:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Marcações da Cama Ideal</h1>
+    <p>Mostre ao cliente onde está cada peça na foto.</p>
+  </header>
+
+  <ol class="stepper" id="stepper"></ol>
+  <div class="toast" id="feedback" role="status" aria-live="polite"></div>
+
+  <!-- PASSO 1 -->
+  <section id="s1" aria-labelledby="h1">
+    <h2 id="h1">Escolha a cama</h2>
+    <p class="lead">Clique na cama que você quer marcar.</p>
+    <div id="camasMsg"></div>
+    <div class="grid" id="camas"></div>
+    <p class="small" style="margin-top:16px">Não encontrou a cama? Ela precisa ter pelo menos uma peça cadastrada na Yampi.</p>
+  </section>
+
+  <!-- PASSO 2 -->
+  <section id="s2" aria-labelledby="h2t" hidden>
+    <h2 id="h2t">Marque as peças</h2>
+    <div id="avisos"></div>
+    <div class="work">
+      <div>
+        <div class="seg" role="group" aria-label="Tipo de tela">
+          <button type="button" id="vd" aria-pressed="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Computador</button>
+          <button type="button" id="vm" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Celular</button>
+        </div>
+        <div class="guide" id="guide" aria-live="polite"></div>
+        <div class="stage"><div class="shell" id="shell"><div class="frame" id="frame"><img alt="" id="foto"></div></div></div>
+        <p class="small" style="margin-top:10px">Arraste um + para movê-lo. Com o + em foco, use as setas (Shift anda mais).</p>
+      </div>
+      <div>
+        <ul class="plist" id="plist"></ul>
+        <div class="row" style="margin-top:12px"><button type="button" class="link" id="desfazer">↶ Desfazer</button></div>
+      </div>
+    </div>
+    <div class="bar">
+      <button type="button" id="b2v">Voltar</button>
+      <span class="saved" id="salvo">Salvo automaticamente neste computador</span>
+      <button type="button" class="primary" id="b2c">Continuar para enviar</button>
+    </div>
+  </section>
+
+  <!-- PASSO 3 -->
+  <section id="s3" aria-labelledby="h3t" hidden>
+    <h2 id="h3t">Envie as marcações</h2>
+    <div class="sum">
+      <div class="mw"><div class="frame mini" id="mini"><img alt="" id="fotoMini"></div></div>
+      <div class="tx">
+        <h3 id="resTitulo"></h3>
+        <p id="resTxt" style="margin:0 0 16px"></p>
+        <div class="note warn" id="falta" hidden></div>
+        <button type="button" class="primary big" id="copiar">Copiar marcações</button>
+        <p class="copied" id="copiado" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+    <div class="opts one">
+      <div class="opt">
+        <h3>Mande para o Claude</h3>
+        <p style="margin:0">Cole na conversa e envie. Ele mostra como vai ficar e só salva quando você confirmar.</p>
+      </div>
+    </div>
+    <p class="small">Depois de salvo, as marcações aparecem na prévia da loja. Na loja publicada, aparecem quando o tema for publicado.</p>
+    <details>
+      <summary>Ver código (equipe técnica)</summary>
+      <textarea id="saida" readonly rows="8" aria-label="Código gerado"></textarea>
+    </details>
+    <div class="bar"><button type="button" id="b3v">Voltar</button><span></span></div>
+  </section>
+
+  <details class="tech">
+    <summary>Para a equipe técnica</summary>
+    <div class="box">
+      <div class="row">
+        <div style="flex:1 1 200px"><label for="tLoja">Loja (alias)</label><input type="text" id="tLoja" value="" placeholder="alias-da-loja" autocomplete="off"></div>
+        <div style="flex:1 1 200px"><label for="tRaiz">Categoria raiz</label><input type="text" id="tRaiz" value="cama-do-mes" autocomplete="off"></div>
+        <div style="align-self:flex-end"><button type="button" id="tRecarregar">Recarregar camas</button></div>
+      </div>
+      <div class="row">
+        <div style="flex:1 1 320px"><label for="tLink">Link manual da cama (ou raiz/subcategoria)</label><input type="text" id="tLink" placeholder="https://sua-loja.catalog.yampi.io/cama-do-mes/cama-do-mes-exemplo" autocomplete="off" spellcheck="false"></div>
+        <div style="align-self:flex-end"><button type="button" id="tAbrir">Abrir cama</button></div>
+      </div>
+      <p class="note warn" id="tTemaErro" hidden>Não consegui ler as marcações atuais do tema.</p>
+      <div><label for="tFoto">Endereço da foto (https)</label><input type="url" id="tFoto" placeholder="https://..."><p class="small" id="tOrigem" style="margin:4px 0 0"></p></div>
+      <div>
+        <label for="tImp">Importar código existente (o objeto com cama e marcações, ou só a lista)</label>
+        <textarea id="tImp" rows="4"></textarea>
+        <div class="row" style="margin-top:8px"><button type="button" id="tImpBtn">Importar</button><span id="tImpMsg" class="small" role="status"></span></div>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var S={step:1,view:'d',cama:null,sel:0,undo:[],camas:null,draft:null,foto:'',orfaos:0};
+  var cache={},bannersP=null,fbTimer=null;
+
+  /* ---------- utilidades ---------- */
+  function r1(v){v=Math.max(0,Math.min(100,v));return Math.round(v*10)/10}
+  function fmt(v){return String(r1(v))}
+  function pair(a){return fmt(a[0])+','+fmt(a[1])}
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+  function proto(u){if(typeof u!=='string'||!u)return '';if(u.indexOf('//')===0)return 'https:'+u;return /^https?:\/\//i.test(u)?u:''}
+  function loja(){return $('tLoja').value.trim()}
+  function raiz(){return ($('tRaiz').value.trim()||'cama-do-mes').replace(/^\/+|\/+$/g,'')}
+  function base(){return 'https://api.dooki.com.br/v2/'+encodeURIComponent(loja())+'/public/'}
+  function getJson(url){
+    return fetch(url,{headers:{Accept:'application/json'}}).then(function(r){
+      if(!r.ok){var e=new Error('http '+r.status);e.status=r.status;throw e}
+      return r.json();
+    });
+  }
+  function feedback(t){var f=$('feedback');clearTimeout(fbTimer);f.textContent=t;f.classList.toggle('on',!!t);if(t)fbTimer=setTimeout(function(){f.textContent='';f.classList.remove('on')},3000)}
+  function pos(v){return Array.isArray(v)&&v.length===2&&isFinite(v[0])&&isFinite(v[1])?[+v[0],+v[1]]:null}
+  var SLUG=/^[a-z0-9-]+$/;
+  function P(){return S.cama?S.cama.produtos:[]}
+  function marcada(p){return !!p.d}
+  function resolvida(p){return !!p.d||p.ausente}
+
+  function itens(arr){
+    var out=[];
+    (arr||[]).forEach(function(it){
+      if(!it||typeof it.produto!=='string')return;
+      var x=parseFloat(it.x),y=parseFloat(it.y),mx=parseFloat(it.mx),my=parseFloat(it.my);
+      out.push({slug:it.produto.trim(),d:isFinite(x)&&isFinite(y)?[r1(x),r1(y)]:null,m:isFinite(mx)&&isFinite(my)?[r1(mx),r1(my)]:null});
+    });
+    return out;
+  }
+  function parseImport(txt){
+    var t=(txt||'').trim();if(!t)return null;
+    var i=t.search(/[\[{]/);if(i<0)return null;
+    var cand=t.slice(i);
+    var v=null;
+    try{v=JSON.parse(cand)}catch(e){
+      var j=Math.max(cand.lastIndexOf('}'),cand.lastIndexOf(']'));
+      try{v=JSON.parse(cand.slice(0,j+1))}catch(e2){return null}
+    }
+    if(Array.isArray(v))return itens(v);
+    if(v&&Array.isArray(v.marcacoes))return itens(v.marcacoes);
+    return null;
+  }
+  var temaP=null;
+  function getTema(){
+    if(!temaP){
+      var u='https://openstore-production-assets.yampi.io/'+encodeURIComponent(loja())+'/templates/rocket-preview/elements/cama-ideal-marcacoes.twig?_='+Date.now();
+      temaP=fetch(u).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.text()}).then(function(t){
+        var m=t.match(/macro\s+marcacoes\(\)\s*%\}\s*\{\{\s*\(\s*([\s\S]*?)\s*\)\s*\|\s*json_encode/);
+        if(!m)throw new Error('formato');
+        var o=JSON.parse(m[1]);$('tTemaErro').hidden=true;return o||{};
+      }).catch(function(e){console.debug('marcações do tema indisponíveis',e);$('tTemaErro').hidden=false;return {}});
+    }
+    return temaP;
+  }
+  function aplicaBloco(prods,list){
+    var by={},orf=0;prods.forEach(function(p){by[p.slug]=p});
+    (list||[]).forEach(function(it){var p=by[it.slug];if(p){p.d=it.d;p.m=it.m}else orf++});
+    return orf;
+  }
+  function buildObj(){
+    var arr=[];
+    P().forEach(function(p){
+      if(!p.d||p.ausente||!SLUG.test(p.slug))return;
+      var o={produto:p.slug,x:r1(p.d[0]),y:r1(p.d[1])};
+      if(p.m&&pair(p.m)!==pair(p.d)){o.mx=r1(p.m[0]);o.my=r1(p.m[1])}
+      arr.push(o);
+    });
+    return {cama:S.cama.sub,marcacoes:arr};
+  }
+  function build(){return JSON.stringify(buildObj())}
+  function texto(){return 'Salvar marcações da '+S.cama.titulo+' ('+S.cama.sub+'):\n'+build()}
+
+  /* ---------- rascunho ---------- */
+  function dkey(){return 'pde-cama-v3:'+loja()+':'+S.cama.path}
+  var okStorage=true;
+  function saveDraft(){
+    if(!S.cama)return;
+    try{localStorage.setItem(dkey(),JSON.stringify({foto:S.foto,ps:P().map(function(p){return {slug:p.slug,d:p.d,m:p.m,ausente:!!p.ausente}})}));okStorage=true}catch(e){okStorage=false}
+    $('salvo').hidden=!okStorage;
+  }
+  function readDraft(path){try{var s=localStorage.getItem('pde-cama-v3:'+loja()+':'+path);return s?JSON.parse(s):null}catch(e){return null}}
+  function dropDraft(path){try{localStorage.removeItem('pde-cama-v3:'+loja()+':'+path)}catch(e){}}
+  function aplicaDraft(d){
+    var by={};P().forEach(function(p){by[p.slug]=p});
+    (d.ps||[]).forEach(function(x){var p=by[x.slug];if(p){p.d=pos(x.d);p.m=pos(x.m);p.ausente=!!x.ausente}});
+    if(d.foto&&!S.cama.foto){S.foto=d.foto}
+  }
+
+  /* ---------- desfazer ---------- */
+  function snap(){return JSON.stringify({s:S.sel,p:P().map(function(p){return [p.d,p.m,!!p.ausente]})})}
+  function pushUndo(s){S.undo.push(s||snap());if(S.undo.length>60)S.undo.shift()}
+  function desfazer(){
+    if(!S.undo.length||S.step!==2){feedback('Nada para desfazer.');return}
+    var o=JSON.parse(S.undo.pop());
+    P().forEach(function(p,i){p.d=o.p[i][0];p.m=o.p[i][1];p.ausente=o.p[i][2]});
+    S.sel=o.s;saveDraft();renderWork();feedback('Ação desfeita ✓');
+  }
+  document.addEventListener('keydown',function(ev){
+    if((ev.ctrlKey||ev.metaKey)&&(ev.key==='z'||ev.key==='Z')&&!/INPUT|TEXTAREA/.test((ev.target.tagName||''))){ev.preventDefault();desfazer()}
+  });
+  $('desfazer').addEventListener('click',desfazer);
+
+  /* ---------- navegação ---------- */
+  function go(n){
+    if(n>1&&!S.cama)return;
+    S.step=n;feedback('');
+    [1,2,3].forEach(function(i){$('s'+i).hidden=i!==n});
+    renderStepper();
+    if(n===2)renderWork();
+    if(n===3)renderResumo();
+    window.scrollTo(0,0);
+  }
+  function renderStepper(){
+    var names=['Escolher a cama','Marcar as peças','Enviar'];
+    var ol=$('stepper');ol.innerHTML='';
+    names.forEach(function(nm,i){
+      var n=i+1,li=document.createElement('li');
+      li.className=(S.step===n?'on':'')+(n<S.step?' done':'');
+      var b=document.createElement('button');b.type='button';b.disabled=n>1&&!S.cama;
+      if(S.step===n)b.setAttribute('aria-current','step');
+      b.innerHTML='<span class="n">'+(n<S.step?'✓':n)+'</span><span>'+nm+'</span>';
+      b.addEventListener('click',function(){go(n)});
+      li.appendChild(b);ol.appendChild(li);
+    });
+  }
+  $('b2v').addEventListener('click',function(){go(1)});
+  $('b2c').addEventListener('click',function(){go(3)});
+  $('b3v').addEventListener('click',function(){go(2)});
+
+  /* ---------- passo 1: camas ---------- */
+  function getBanners(){
+    if(!bannersP)bannersP=getJson(base()+'catalog/banners').then(function(r){return r&&r.data||[]}).catch(function(){return []});
+    return bannersP;
+  }
+  function bannerPara(list,sub){
+    var f='';list.forEach(function(b){if(!f&&b.slug===sub&&b.image_url)f=proto(b.image_url)});return f;
+  }
+  function fetchCama(path){
+    var k=loja()+'|'+path;
+    if(!cache[k])cache[k]=getJson(base()+'search/products?context=category&slug='+encodeURI(path)+'&limit=50');
+    return cache[k];
+  }
+  function listaCamas(){
+    var msg=$('camasMsg'),grid=$('camas');
+    msg.innerHTML='';grid.innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+    var rz=raiz();
+    function pagina(n,acc){
+      return getJson(base()+'search/products?context=category&slug='+encodeURIComponent(rz)+'&limit=50&include=categories&page='+n).then(function(r){
+        var d=r.data||[];acc=acc.concat(d);
+        return d.length>=50&&n<10?pagina(n+1,acc):acc;
+      });
+    }
+    pagina(1,[]).then(function(prods){
+      var rootId=null,ids={};
+      prods.forEach(function(p){((p.categories&&p.categories.data)||[]).forEach(function(c){
+        if(c.parent&&c.parent.slug===rz)rootId=c.parent.id;
+        if(c.slug===rz&&!rootId)rootId=c.id;
+      })});
+      prods.forEach(function(p){((p.categories&&p.categories.data)||[]).forEach(function(c){if(rootId&&c.parent_id===rootId)ids[c.id]=1})});
+      var idl=Object.keys(ids);
+      if(!idl.length)return [];
+      var q=new URLSearchParams();idl.forEach(function(i){q.append('id[]',i)});
+      return getJson(base()+'catalog/categories?'+q.toString()).then(function(r){return r.data||[]});
+    }).then(function(cats){
+      cats.sort(function(a,b){return (a.order-b.order)||String(a.name).localeCompare(String(b.name),'pt-BR')});
+      return getBanners().then(function(bn){
+        S.camas=cats.map(function(c){return {id:c.id,nome:c.name,sub:c.slug,path:rz+'/'+c.slug,destaque:!!c.featured,foto:proto(c.category_cover)||bannerPara(bn,c.slug),estado:''}});
+        renderCamas();
+        Promise.all([getTema()]).then(function(r){
+          var tema=r[0];
+          S.camas.forEach(function(c){
+            fetchCama(c.path).then(function(res){
+              var slugs={};(res.data||[]).forEach(function(p){slugs[p.slug]=1});
+              var n=(res.data||[]).length,m=itens(tema[c.sub]).filter(function(it){return slugs[it.slug]&&it.d}).length;
+              c.estado=m?(m+' de '+n+' peças marcadas'):'Nenhuma marcação ainda';
+              renderCamas();
+            }).catch(function(){});
+          });
+        });
+      });
+    }).catch(function(e){
+      grid.innerHTML='';
+      msg.innerHTML='<div class="note err">Não consegui buscar as camas agora. Confira a internet.<div class="row"><button type="button" id="retry">Tentar de novo</button></div></div>';
+      $('retry').addEventListener('click',listaCamas);
+    });
+  }
+  function renderCamas(){
+    var grid=$('camas'),msg=$('camasMsg');grid.innerHTML='';
+    if(!S.camas.length){msg.innerHTML='<div class="note warn">Nenhuma cama encontrada. Veja o aviso abaixo sobre peças cadastradas.</div>';return}
+    S.camas.forEach(function(c){
+      var b=document.createElement('button');b.type='button';b.className='cama';
+      b.innerHTML='<div class="ph'+(c.foto?'':' empty')+'">'+(c.foto?'<img alt="" loading="lazy">':esc(c.nome))+(c.destaque?'<span class="badge">Em destaque</span>':'')+'</div>'+
+        '<div class="body"><div class="nome">'+esc(c.nome)+'</div><div class="estado">'+esc(c.estado||'Verificando…')+'</div></div>';
+      var im=b.querySelector('img');if(im){im.src=c.foto;im.addEventListener('error',function(){var ph=im.parentNode;ph.classList.add('empty');ph.insertBefore(document.createTextNode(c.nome),im);im.remove()})}
+      b.addEventListener('click',function(){abrirCama(c.path,c.nome,c.foto||'',c.foto?(proto(c.foto)?'categoria':''):'')});
+      grid.appendChild(b);
+    });
+  }
+
+  /* ---------- abrir cama ---------- */
+  function buscaCapa(sub,first){
+    if(!first)return Promise.resolve('');
+    return getJson(base()+'catalog/products/'+encodeURIComponent(first)+'?include=categories').then(function(r){
+      var cats=(r&&r.data&&r.data.categories&&r.data.categories.data)||[];
+      var c=cats.filter(function(x){return x.slug===sub})[0];
+      if(!c)return '';
+      var q=new URLSearchParams();q.append('id[]',c.id);
+      return getJson(base()+'catalog/categories?'+q.toString()).then(function(r2){return proto(r2&&r2.data&&r2.data[0]&&r2.data[0].category_cover)});
+    }).catch(function(e){console.debug('capa indisponível',e);return ''});
+  }
+  function abrirCama(path,nome){
+    var sub=path.split('/').pop();
+    feedback('Abrindo a cama…');document.body.style.cursor='progress';
+    return fetchCama(path).then(function(res){
+      if(!res.data||!res.data.length){var e=new Error('vazia');e.status=404;throw e}
+      return buscaCapa(sub,res.data[0].slug).then(function(capa){
+        return getBanners().then(function(bn){
+          var foto=capa,origem=capa?'capa da subcategoria':'';
+          if(!foto){foto=bannerPara(bn,sub);if(foto)origem='banner com o mesmo nome'}
+          var meta=res.meta||{};
+          var prods=res.data.map(function(p){
+            var im=p.images&&p.images.data&&p.images.data[0]&&p.images.data[0].url||'';
+            return {nome:p.name||'',slug:p.slug||'',img:im,d:null,m:null,ausente:false};
+          });
+          return getTema().then(function(tema){
+          var l=itens(tema[sub]);
+          S.orfaos=l.length?aplicaBloco(prods,l):0;S.daLoja=prods.some(function(p){return p.d});
+          S.cama={path:path,sub:sub,titulo:nome||meta.name||sub,foto:foto,origem:origem,produtos:prods};
+          S.foto=foto;S.undo=[];S.view='d';
+          S.draft=readDraft(path);
+          if(S.draft&&!(S.draft.ps||[]).length)S.draft=null;
+          S.sel=Math.max(0,primeiraPendente());
+          $('tFoto').value=foto;$('tOrigem').textContent=origem?'Foto: '+origem:'Sem foto cadastrada.';
+          feedback('');go(2);
+          });
+        });
+      });
+    }).catch(function(e){
+      feedback('');
+      $('camasMsg').innerHTML='<div class="note err">'+(e.status===404?'Não encontrei essa cama. Confira o link.':'Não consegui abrir a cama agora. Tente de novo.')+'</div>';
+      go(1);
+    }).then(function(){document.body.style.cursor=''});
+  }
+  function primeiraPendente(from){
+    var ps=P(),n=ps.length;from=from==null?-1:from;
+    for(var k=1;k<=n;k++){var i=(from+k+n)%n;if(!resolvida(ps[i]))return i}
+    return -1;
+  }
+
+  /* ---------- passo 2 ---------- */
+  function setFoto(src){
+    S.foto=src;
+    ['foto','fotoMini'].forEach(function(id){var e=$(id);if(src)e.src=src;else e.removeAttribute('src');e.style.display=src?'':'none'});
+  }
+  function renderAvisos(){
+    var a=$('avisos'),h='';
+    if(S.draft){
+      h+='<div class="note warn" role="alert">Você tinha mudanças não enviadas nesta cama. Continuar de onde parou?<div class="row"><button type="button" class="primary" id="dCont">Continuar</button><button type="button" id="dLoja">Começar do que está na loja</button></div></div>';
+    }
+    if(S.daLoja&&!S.draft)h+='<div class="note ok">Marcações atuais carregadas da loja.</div>';
+    if(S.orfaos)h+='<div class="note warn">'+S.orfaos+(S.orfaos>1?' marcações antigas foram ignoradas':' marcação antiga foi ignorada')+' porque a peça não está mais nesta cama.</div>';
+    if(!S.foto)h+='<div class="note warn">Esta cama ainda não tem foto. Peça para cadastrarem a capa da categoria na Yampi, ou cole aqui o endereço de uma foto.<div class="row"><input type="url" id="fotoSimples" placeholder="https://..." style="max-width:460px" aria-label="Endereço da foto"></div></div>';
+    if(S.fotoErro)h+='<div class="note err">Não consegui carregar a foto. Confira o endereço.</div>';
+    a.innerHTML=h;
+    if($('dCont'))$('dCont').addEventListener('click',function(){aplicaDraft(S.draft);S.draft=null;S.undo=[];S.sel=Math.max(0,primeiraPendente());if(S.foto){setFoto(S.foto);$('tFoto').value=S.foto}renderWork()});
+    if($('dLoja'))$('dLoja').addEventListener('click',function(){dropDraft(S.cama.path);S.draft=null;renderWork()});
+    if($('fotoSimples'))$('fotoSimples').addEventListener('input',function(){trocaFoto(this.value)});
+  }
+  function trocaFoto(v){
+    v=v.trim();
+    if(v&&!/^https:\/\//i.test(v))return;
+    S.fotoErro=false;setFoto(v);$('tFoto').value=v;saveDraft();
+    if(v)renderAvisos();
+  }
+  $('tFoto').addEventListener('input',function(){trocaFoto(this.value);if(S.step===2)renderAvisos()});
+  ['foto','fotoMini'].forEach(function(id){
+    $(id).addEventListener('error',function(){if(this.getAttribute('src')){S.fotoErro=true;renderAvisos()}});
+    $(id).addEventListener('load',function(){if(S.fotoErro){S.fotoErro=false;renderAvisos()}});
+  });
+
+  function renderWork(){
+    var m=S.view==='m';
+    $('vd').setAttribute('aria-pressed',!m);$('vm').setAttribute('aria-pressed',m);
+    $('shell').className='shell'+(m?' m':'');
+    $('frame').className='frame'+(m?' m':'');
+    setFoto(S.foto);
+    renderAvisos();renderGuide();renderList();renderDots();
+    $('salvo').hidden=!okStorage;
+  }
+  function renderGuide(){
+    var g=$('guide'),ps=P(),p=ps[S.sel];
+    var tudo=ps.length&&ps.every(resolvida);
+    var h='';
+    var nm=p?'<b>'+esc(p.nome||p.slug)+'</b>':'';
+    if(S.view==='d'){
+      if(p&&p.d)h=nm+' está marcada. Arraste o + para ajustar ou clique em outro lugar da foto para mudar.';
+      else if(p&&p.ausente)h=nm+' não aparece na foto. Clique na foto se quiser marcá-la.';
+      else if(p)h='Clique na foto onde aparece: '+nm;
+      else h='Escolha uma peça na lista.';
+      if(tudo)h='<b>Tudo marcado!</b> Confira como fica no celular.<div class="row" style="margin-top:8px"><button type="button" id="gCel">Ver no celular</button><button type="button" class="primary" id="gCont">Continuar para enviar</button></div>'+'<div class="small" style="margin-top:8px">'+h+'</div>';
+    }else{
+      if(p&&p.d&&!p.m)h='No celular, '+nm+' usa a posição do computador. Arraste o + só se ele cobrir algo importante.';
+      else if(p&&p.d)h=nm+' tem posição própria no celular. Arraste o + para ajustar.';
+      else if(p&&p.ausente)h=nm+' não aparece na foto.';
+      else if(p)h='Primeiro marque '+nm+' no computador.';
+      else h='Escolha uma peça na lista.';
+    }
+    g.innerHTML=h;
+    if($('gCel'))$('gCel').addEventListener('click',function(){S.view='m';renderWork()});
+    if($('gCont'))$('gCont').addEventListener('click',function(){go(3)});
+  }
+  function renderList(){
+    var ul=$('plist');ul.innerHTML='';
+    P().forEach(function(p,i){
+      var li=document.createElement('li');li.className='peca'+(i===S.sel?' sel':'');li.dataset.i=i;
+      var est=p.d?'<span class="est ok">✓ Marcada</span>':(p.ausente?'<span class="est">Não aparece na foto</span>':'<span class="est">Falta marcar</span>');
+      li.innerHTML='<div class="top">'+(p.img?'<img class="thumb" alt="" loading="lazy">':'<div class="thumb sem"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg></div>')+'<div style="min-width:0"><div class="nm"></div>'+est+'</div></div>';
+      li.querySelector('.nm').textContent=p.nome||p.slug;
+      var im=li.querySelector('img');if(im)im.src=p.img;
+      if(i===S.sel){
+        var a=document.createElement('div');a.className='acts';
+        function btn(t,fn){var b=document.createElement('button');b.type='button';b.className='link';b.textContent=t;b.addEventListener('click',function(ev){ev.stopPropagation();fn()});a.appendChild(b)}
+        if(p.d)btn('Remover marcação',function(){act(function(){p.d=null;p.m=null},'Marcação removida')});
+        if(S.view==='m'&&p.d)btn('Usar a mesma posição do computador',function(){act(function(){p.m=null},'Agora usa a mesma posição do computador ✓')});
+        if(p.ausente)btn('Voltar a marcar',function(){act(function(){p.ausente=false},'Peça volta para a lista de marcação')});
+        else btn('Esta peça não aparece na foto',function(){act(function(){p.ausente=true;p.d=null;p.m=null;var n=primeiraPendente(S.sel);if(n>=0)S.sel=n},'Peça marcada como fora da foto ✓')});
+        li.appendChild(a);
+      }
+      li.addEventListener('click',function(){if(S.sel!==i){S.sel=i;renderWork()}});
+      ul.appendChild(li);
+    });
+  }
+
+  function place(b,v,r){
+    b.style.left='clamp('+r+'px, '+fmt(v[0])+'%, calc(100% - '+r+'px))';
+    b.style.top='clamp('+r+'px, '+fmt(v[1])+'%, calc(100% - '+r+'px))';
+  }
+  function drawDots(fr,k,mini){
+    [].slice.call(fr.querySelectorAll('.dot')).forEach(function(n){n.remove()});
+    P().forEach(function(p,i){
+      if(p.ausente)return;
+      var v=p[k],ghost=false;
+      if(k==='m'&&!v&&p.d){v=p.d;ghost=true}
+      if(!v)return;
+      var b=document.createElement(mini?'span':'button');
+      if(!mini)b.type='button';
+      b.className='dot'+(!mini&&i===S.sel?' sel':'')+(ghost?' ghost':'');
+      b.dataset.i=i;
+      var nm=(p.nome||p.slug);
+      if(!mini)b.setAttribute('aria-label','Marcação da peça '+(i+1)+': '+nm+(ghost?' (usa a posição do computador)':''));
+      b.innerHTML='<span class="nn">'+(i+1)+'</span><span class="tip">'+esc(nm)+'</span>';
+      place(b,v,mini?10:16);fr.appendChild(b);
+    });
+  }
+  function renderDots(){drawDots($('frame'),S.view,false)}
+
+  function act(fn,msg){pushUndo();fn();saveDraft();renderWork();if(msg)feedback(msg)}
+  function fromEvent(ev){
+    var r=$('frame').getBoundingClientRect();
+    return [r1((ev.clientX-r.left)/r.width*100),r1((ev.clientY-r.top)/r.height*100)];
+  }
+  var frame=$('frame'),drag=null;
+  frame.addEventListener('click',function(ev){
+    if(ev.target.closest('.dot'))return;
+    var p=P()[S.sel];
+    if(!p){feedback('Escolha uma peça na lista.');return}
+    var v=fromEvent(ev);
+    if(S.view==='d'){
+      act(function(){p.d=v;p.ausente=false;var n=primeiraPendente(S.sel);if(n>=0)S.sel=n},(p.nome||p.slug).split(' ')[0]+' marcada ✓');
+    }else{
+      if(!p.d){feedback('Primeiro marque esta peça no computador.');return}
+      act(function(){p.m=v},'Posição no celular ajustada ✓');
+    }
+  });
+  frame.addEventListener('pointerdown',function(ev){
+    var b=ev.target.closest('.dot');if(!b)return;
+    ev.preventDefault();
+    var i=+b.dataset.i,before=snap();
+    if(i!==S.sel){S.sel=i;renderGuide();renderList();renderDots();b=frame.querySelector('.dot[data-i="'+i+'"]')}
+    drag={b:b,i:i,id:ev.pointerId,moved:false,before:before};
+    try{b.setPointerCapture(ev.pointerId)}catch(e){}
+    b.classList.add('drag');b.focus();
+  });
+  frame.addEventListener('pointermove',function(ev){
+    if(!drag||ev.pointerId!==drag.id)return;
+    var v=fromEvent(ev),p=P()[drag.i],k=S.view;
+    if(!drag.moved){pushUndo(drag.before);drag.moved=true}
+    drag.b.classList.remove('ghost');
+    place(drag.b,v,16);p[k]=v;
+  });
+  function end(ev){
+    if(!drag||ev.pointerId!==drag.id)return;
+    var d=drag;drag=null;d.b.classList.remove('drag');
+    if(d.moved){saveDraft();renderList()}
+    var nb=frame.querySelector('.dot[data-i="'+d.i+'"]');if(nb)nb.focus();
+  }
+  frame.addEventListener('pointerup',end);frame.addEventListener('pointercancel',end);
+  var keyT=0;
+  frame.addEventListener('keydown',function(ev){
+    var b=ev.target.closest('.dot');if(!b)return;
+    var s=ev.shiftKey?2:0.5,dx=0,dy=0;
+    if(ev.key==='ArrowLeft')dx=-s;else if(ev.key==='ArrowRight')dx=s;
+    else if(ev.key==='ArrowUp')dy=-s;else if(ev.key==='ArrowDown')dy=s;else return;
+    ev.preventDefault();
+    var i=+b.dataset.i,p=P()[i],k=S.view,cur=p[k]||p.d;if(!cur)return;
+    var now=Date.now();if(now-keyT>700)pushUndo();keyT=now;
+    p[k]=[r1(cur[0]+dx),r1(cur[1]+dy)];
+    if(i!==S.sel)S.sel=i;
+    saveDraft();renderWork();
+    var nb=frame.querySelector('.dot[data-i="'+i+'"]');if(nb)nb.focus();
+  });
+  $('vd').addEventListener('click',function(){S.view='d';renderWork()});
+  $('vm').addEventListener('click',function(){S.view='m';renderWork()});
+
+  /* ---------- passo 3 ---------- */
+  function renderResumo(){
+    var ps=P(),n=ps.length,m=ps.filter(marcada).length,au=ps.filter(function(p){return p.ausente}).length,fal=n-m-au;
+    $('resTitulo').textContent=S.cama.titulo;
+    var t=n+(n===1?' peça: ':' peças: ')+m+(m===1?' marcada':' marcadas');
+    if(au)t+=', '+au+' não '+(au===1?'aparece':'aparecem')+' na foto';
+    if(fal)t+=', '+fal+' ainda '+(fal===1?'falta':'faltam')+' marcar';
+    $('resTxt').textContent=t+'.';
+    var fl=$('falta'),pend=ps.filter(function(p){return !resolvida(p)});
+    if(pend.length){
+      var nomes=pend.map(function(p){return '<b>'+esc(p.nome||p.slug)+'</b>'}).join(', ');
+      fl.innerHTML='Ainda falta marcar: '+nomes+'. Se '+(pend.length>1?'elas não aparecem':'ela não aparece')+' na foto, tudo bem — marque como "não aparece".<div class="row"><button type="button" id="fVoltar">Voltar e marcar</button></div>';
+      fl.hidden=false;
+      $('fVoltar').addEventListener('click',function(){S.sel=ps.indexOf(pend[0]);S.view='d';go(2)});
+    }else fl.hidden=true;
+    setFoto(S.foto);drawDots($('mini'),'d',true);
+    $('saida').value=build();$('copiado').textContent='';
+  }
+  $('copiar').addEventListener('click',function(){
+    var txt=texto();$('saida').value=build();
+    function ok(){$('copiado').textContent='Copiado! ✓'}
+    function fb(){
+      var t=document.createElement('textarea');t.value=txt;t.style.cssText='position:fixed;left:-9999px;top:0';document.body.appendChild(t);t.select();
+      var done=false;try{done=document.execCommand('copy')}catch(e){}
+      t.remove();
+      if(done)ok();else $('copiado').textContent='Não consegui copiar. Abra "Ver código" e copie à mão.';
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok,fb);else fb();
+  });
+
+  /* ---------- equipe técnica ---------- */
+  function parseCama(txt){
+    var l=loja(),rz=raiz(),t=txt.trim(),path;
+    if(/^https?:\/\//i.test(t)){
+      try{var u=new URL(t);var h=u.hostname.match(/^([^.]+)\.catalog\.yampi\.io$/i);if(h)l=h[1];path=u.pathname}catch(e){return null}
+    }else path=t.split(/[?#]/)[0];
+    path=path.replace(/^\/+|\/+$/g,'');
+    if(!path)return null;
+    if(path.indexOf('/')<0)path=rz+'/'+path;
+    return {loja:l,path:path};
+  }
+  $('tAbrir').addEventListener('click',function(){
+    var pc=parseCama($('tLink').value);if(!pc){feedback('Informe o link da cama.');return}
+    if(pc.loja!==loja()){$('tLoja').value=pc.loja;bannersP=null;temaP=null}
+    abrirCama(pc.path,'');
+  });
+  $('tRecarregar').addEventListener('click',function(){bannersP=null;cache={};temaP=null;listaCamas()});
+  $('tImpBtn').addEventListener('click',function(){
+    var m=$('tImpMsg'),l=parseImport($('tImp').value);
+    if(!l){m.textContent='Não encontrei as marcações no texto colado.';return}
+    if(!S.cama){
+      S.cama={path:'manual',sub:'manual',titulo:'Cama importada',foto:'',origem:'',produtos:l.map(function(it){return {nome:it.slug,slug:it.slug,img:'',d:it.d,m:it.m,ausente:false}})};
+      S.orfaos=0;S.draft=null;S.undo=[];S.sel=0;setFoto('');go(2);
+    }else{
+      pushUndo();S.orfaos=aplicaBloco(P(),l);saveDraft();if(S.step===2)renderWork();else if(S.step===3)renderResumo();
+    }
+    m.textContent=l.length+' marcação(ões) lida(s).';
+  });
+  $('tLoja').addEventListener('change',function(){bannersP=null;cache={};temaP=null});
+
+  /* ---------- início ---------- */
+  renderStepper();
+  try{localStorage.getItem('x')}catch(e){okStorage=false}
+  /* loja e raiz pela URL: cama-ideal-pontos.html?loja=<alias>&raiz=<slug> */
+  try{var q=new URLSearchParams(location.search);if(q.get('loja'))$('tLoja').value=q.get('loja');if(q.get('raiz'))$('tRaiz').value=q.get('raiz')}catch(e){}
+  if(!loja()){document.querySelector('details.tech').open=true;feedback('Informe o alias da loja em "Para a equipe técnica" e clique em Recarregar camas.');$('tLoja').focus();return}
+  listaCamas();
+})();
+</script>
+</body>
+</html>

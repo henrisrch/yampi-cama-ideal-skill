@@ -1,0 +1,17 @@
+{#
+   Marcações "+" na foto das Camas Ideais.
+   Mantido pela skill cama-ideal (scripts/cama-ideal) a partir da ferramenta
+   ferramentas/cama-ideal-pontos.html. Mantenha válido o JSON da macro.
+
+   Uma chave por cama (slug da subcategoria). Em cada marcação:
+     produto ... slug do produto (o da URL, antes de "/p")
+     x, y ...... posição no computador, em % da foto (0 = esquerda/topo)
+     mx, my .... posição no celular (opcional; sem elas, vale x, y)
+#}
+{% macro marcacoes() %}{{ (
+{
+    "cama-do-mes-exemplo": [
+        { "produto": "colcha-exemplo", "x": 50, "y": 40, "mx": 48, "my": 42 }
+    ]
+}
+) | json_encode | e }}{% endmacro %}

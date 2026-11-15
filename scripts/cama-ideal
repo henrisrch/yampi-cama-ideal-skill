@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""Cama Ideal — leitura das camas na Yampi e marcações "+" no tema.
+
+Usado pela skill skills/cama-ideal/SKILL.md.
+- Camas, produtos e textos: API de catálogo (scripts/yampi-catalog-request).
+- Marcações "+": arquivo do tema <THEME_DIR>/elements/cama-ideal-marcacoes.twig,
+  enviado ao preview por scripts/yampi-store-file (a Yampi apaga data-* da
+  descrição de categoria, por isso as marcações vivem no código da loja).
+Escrita só com --aplicar; sem ela, mostra o que mudaria.
+
+  scripts/cama-ideal status                       # todas as camas e pendências
+  scripts/cama-ideal ver <slug>                   # detalhe de uma cama
+  scripts/cama-ideal pontos <slug>                # marcações atuais (JSON)
+  scripts/cama-ideal salvar-pontos <arquivo> [<slug>] [--aplicar]
+        <arquivo>: texto copiado da ferramenta ("Salvar marcações da …" + JSON)
+  scripts/cama-ideal tirar-pontos <slug> [--aplicar]
+
+Opção global: --raiz <slug da categoria Cama Ideal> (padrão: cama-do-mes).
+Enviar ao preview não publica o tema: a loja publicada só muda ao publicar.
+"""
+import difflib
+import os
+import html
+import json
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+REQUEST = ROOT / 'scripts' / 'yampi-catalog-request'
+STORE_FILE = ROOT / 'scripts' / 'yampi-store-file'
+THEME = ROOT / os.environ.get('THEME_DIR', 'tema')  # pasta local do tema (variável THEME_DIR)
+MARKS_PATH = 'elements/cama-ideal-marcacoes.twig'
+MARKS_RE = re.compile(r'(macro\s+marcacoes\(\)\s*%\}\{\{\s*\(\s*\n)(.*?)(\n\s*\)\s*\|\s*json_encode)', re.S)
+# Campos devolvidos pelo GET que voltam no PUT (PUT sem slug regenera o slug).
+PUT_FIELDS = ('active', 'name', 'slug', 'parent_id', 'featured', 'order', 'description', 'sort_by', 'external_url')
+
+
+def api(method, resource, payload=None):
+    if method == 'GET':  # leitura com parâmetro único: a API devolve cache antigo após escrita
+        resource += ('&' if '?' in resource else '?') + f'_pde_read={time.time_ns()}'
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as f:
+        command = ['bash', str(REQUEST), method, resource]
+        if payload is not None:
+            json.dump(payload, f, ensure_ascii=False)
+            f.flush()
+            command.append(f.name)
+        result = subprocess.run(command, capture_output=True, text=True)
+    time.sleep(1.1)  # limite de 60 req/min
+    if result.returncode:
+        sys.exit(f'Erro na API ({method} {resource.split("?")[0]}): {(result.stdout or result.stderr)[:600]}')
+    data = json.loads(result.stdout)
+    return data.get('data', data)
+
+
+def categories():
+    return api('GET', 'catalog/categories?limit=100')
+
+
+def camas(raiz):
+    cats = categories()
+    root = next((c for c in cats if c['slug'] == raiz), None)
+    if not root:
+        sys.exit(f'Categoria raiz "{raiz}" não encontrada. Use --raiz <slug>.')
+    children = sorted((c for c in cats if c.get('parent_id') == root['id']), key=lambda c: (c.get('order') or 0, c['name']))
+    return root, children
+
+
+def find_cama(raiz, slug):
+    root, children = camas(raiz)
+    cama = next((c for c in children if c['slug'] == slug), None)
+    if not cama:
+        sys.exit(f'Cama "{slug}" não encontrada em {raiz}. Disponíveis: {", ".join(c["slug"] for c in children) or "nenhuma"}')
+    return root, cama
+
+
+def products(cama_id):
+    return api('GET', f'catalog/categories/{cama_id}/products?limit=100')
+
+
+def description_parts(description):
+    """Resumo (1º <p>) e o bloco "O que transforma…" (pergunta, nº de itens)."""
+    rest = (description or '').strip()
+    first = re.match(r'\s*<p\b[^>]*>(.*?)</p>', rest, re.S | re.I)
+    summary = html.unescape(re.sub(r'<[^>]+>', '', first.group(1))).strip() if first else ''
+    after = rest[first.end():] if first else rest
+    question = re.search(r'<h[1-3]\b[^>]*>(.*?)</h[1-3]>', after, re.S | re.I)
+    items = len(re.findall(r'<p\b[^>]*>\s*<(strong|b)\b', after, re.I))
+    return summary, (html.unescape(re.sub(r'<[^>]+>', '', question.group(1))).strip() if question else ''), items
+
+
+def page_url(cama):
+    return f"{cama.get('url', '').split('?')[0]}?preview=true"
+
+
+# ---------- marcações no tema ----------
+
+def store_file(*args, capture=True):
+    result = subprocess.run(['bash', str(STORE_FILE), *args], capture_output=capture, cwd=ROOT)
+    return result
+
+
+def read_marks_text(source='local'):
+    if source == 'local':
+        path = THEME / MARKS_PATH
+        if not path.exists():
+            sys.exit(f'Arquivo {MARKS_PATH} não existe no tema local.')
+        return path.read_text(encoding='utf-8')
+    result = store_file('get-current', MARKS_PATH)
+    if result.returncode:
+        sys.exit(f'Não consegui ler {MARKS_PATH} do preview: {(result.stdout or result.stderr)[:300]!r}')
+    return result.stdout.decode('utf-8')
+
+
+def parse_marks(text):
+    match = MARKS_RE.search(text)
+    if not match:
+        sys.exit(f'{MARKS_PATH}: não achei o JSON dentro da macro marcacoes().')
+    try:
+        data = json.loads(match.group(2))
+    except json.JSONDecodeError as error:
+        sys.exit(f'{MARKS_PATH}: JSON inválido ({error}).')
+    return data if isinstance(data, dict) else {}
+
+
+def render_marks(text, marks):
+    lines = []
+    for index, (slug, points) in enumerate(marks.items()):
+        lines.append(f'    {json.dumps(slug, ensure_ascii=False)}: [')
+        for n, point in enumerate(points):
+            comma = ',' if n < len(points) - 1 else ''
+            lines.append('        ' + json.dumps(point, ensure_ascii=False).replace('{"', '{ "').replace('}', ' }').replace('":', '":').replace(', "', ', "') + comma)
+        lines.append('    ]' + (',' if index < len(marks) - 1 else ''))
+    body = '{\n' + '\n'.join(lines) + ('\n' if lines else '') + '}'
+    return MARKS_RE.sub(lambda m: m.group(1) + body + m.group(3), text, count=1)
+
+
+def number(value):
+    value = round(float(value), 1)
+    if not 0 <= value <= 100:
+        raise ValueError
+    return int(value) if value == int(value) else value
+
+
+def normalize(points):
+    out = []
+    for point in points:
+        produto = str(point.get('produto', '')).strip()
+        try:
+            x, y = number(point['x']), number(point['y'])
+        except (KeyError, TypeError, ValueError):
+            sys.exit(f'Marcação inválida (x/y de 0 a 100 obrigatórios): {point}')
+        if not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', produto):
+            sys.exit(f'Produto inválido na marcação: {produto!r}')
+        item = {'produto': produto, 'x': x, 'y': y}
+        if point.get('mx') is not None and point.get('my') is not None:
+            try:
+                mx, my = number(point['mx']), number(point['my'])
+            except (TypeError, ValueError):
+                sys.exit(f'Posição de celular inválida: {point}')
+            if (mx, my) != (x, y):
+                item.update(mx=mx, my=my)
+        out.append(item)
+    return out
+
+
+def parse_request(text):
+    """Texto copiado da ferramenta: 'Salvar marcações da …' + JSON {cama, marcacoes}."""
+    start = text.find('{')
+    if start < 0:
+        sys.exit('Não achei as marcações no texto. Cole exatamente o que a ferramenta copiou.')
+    try:
+        data, _end = json.JSONDecoder().raw_decode(text[start:])
+    except json.JSONDecodeError as error:
+        sys.exit(f'As marcações estão incompletas ({error}). Copie de novo na ferramenta.')
+    if not isinstance(data, dict) or not isinstance(data.get('marcacoes'), list):
+        sys.exit('Formato inesperado: falta "marcacoes".')
+    return str(data.get('cama', '')).strip(), data['marcacoes']
+
+
+def fmt_point(point):
+    text = f'computador {point["x"]},{point["y"]}'
+    if 'mx' in point:
+        text += f' · celular {point["mx"]},{point["my"]}'
+    return text
+
+
+# ---------- checagens e comandos ----------
+
+def check(cama, items, points):
+    issues = []
+    summary, question, _n = description_parts(cama.get('description'))
+    slugs = {p['slug'] for p in items}
+    if not cama.get('active'):
+        issues.append('subcategoria inativa (não aparece na loja)')
+    if not cama.get('category_cover'):
+        issues.append('sem capa na subcategoria — a foto vem de um banner com o mesmo slug, se houver')
+    if not items:
+        issues.append('nenhum produto na subcategoria')
+    if not summary:
+        issues.append('sem resumo (1º parágrafo da descrição)')
+    if not question:
+        issues.append('sem bloco "O que transforma…" (título + itens em negrito)')
+    if not points:
+        issues.append('sem marcações "+" na foto')
+    for p in points:
+        if p['produto'] not in slugs:
+            issues.append(f'marcação de "{p["produto"]}", que não está nesta subcategoria (não aparece)')
+    if points:
+        for s in sorted(slugs - {p['produto'] for p in points}):
+            issues.append(f'produto sem marcação (ok se não aparece na foto): {s}')
+    return issues
+
+
+def cmd_status(raiz):
+    root, children = camas(raiz)
+    marks = parse_marks(read_marks_text())
+    print(f'Cama Ideal: {root["name"]} ({root["slug"]}) — {len(children)} cama(s)\n')
+    for cama in children:
+        items = products(cama['id'])
+        points = marks.get(cama['slug'], [])
+        flags = ['destaque' if cama.get('featured') else '', 'ativa' if cama.get('active') else 'INATIVA']
+        print(f'• {cama["name"]} — {cama["slug"]} (ordem {cama.get("order") or 0}; {", ".join(f for f in flags if f)})')
+        print(f'  {len(items)} produto(s), {len(points)} marcação(ões) — {page_url(cama)}')
+        for issue in check(cama, items, points):
+            print(f'  ⚠ {issue}')
+        print()
+
+
+def cmd_ver(raiz, slug):
+    _root, cama = find_cama(raiz, slug)
+    items = products(cama['id'])
+    points = parse_marks(read_marks_text()).get(slug, [])
+    summary, question, n_items = description_parts(cama.get('description'))
+    by_slug = {p['produto']: p for p in points}
+    print(f'{cama["name"]} — {cama["slug"]} (id {cama["id"]})')
+    print(f'Página: {page_url(cama)}')
+    print(f'Ativa: {"sim" if cama.get("active") else "NÃO"} · Destaque: {"sim" if cama.get("featured") else "não"} · Ordem: {cama.get("order") or 0}')
+    print(f'Capa: {cama.get("category_cover") or "(sem capa na subcategoria)"}')
+    print(f'Resumo: {summary or "(vazio)"}')
+    print(f'O que transforma: {question or "(sem título)"} — {n_items} item(ns) em negrito')
+    print(f'\nProdutos ({len(items)}):')
+    for p in items:
+        point = by_slug.get(p['slug'])
+        print(f'  - {p["slug"]} — {p.get("name", "")}' + (f'  + {fmt_point(point)}' if point else ''))
+    issues = check(cama, items, points)
+    print('\nPendências:' if issues else '\nSem pendências.')
+    for issue in issues:
+        print(f'  ⚠ {issue}')
+
+
+def cmd_pontos(slug):
+    print(json.dumps({'cama': slug, 'marcacoes': parse_marks(read_marks_text()).get(slug, [])}, ensure_ascii=False))
+
+
+def write_marks(slug, new_points, aplicar):
+    local_text = read_marks_text('local')
+    remote_text = read_marks_text('remote')
+    if local_text != remote_text:
+        sys.exit(f'{MARKS_PATH} local é diferente do preview. Alguém mudou um dos dois: '
+                 'confira (scripts/yampi-store-file get-current) antes de salvar.')
+    marks = parse_marks(local_text)
+    old_points = marks.get(slug, [])
+    if new_points:
+        marks[slug] = new_points
+    else:
+        marks.pop(slug, None)
+    new_text = render_marks(local_text, marks)
+    parse_marks(new_text)  # garante JSON válido
+    if new_text == local_text:
+        print('Nada a mudar: as marcações já estão assim.')
+        return
+    print('Antes:' if old_points else 'Antes: (sem marcações)')
+    for p in old_points:
+        print(f'  - {p["produto"]}: {fmt_point(p)}')
+    print('Depois:' if new_points else 'Depois: (sem marcações)')
+    for p in new_points:
+        print(f'  - {p["produto"]}: {fmt_point(p)}')
+    print('\nMudança no arquivo do tema:')
+    sys.stdout.writelines(l for l in difflib.unified_diff(local_text.splitlines(True), new_text.splitlines(True), MARKS_PATH, MARKS_PATH, n=1))
+    if not aplicar:
+        print('\n(simulação — nada foi salvo. Rode de novo com --aplicar para salvar no preview.)')
+        return
+    (THEME / MARKS_PATH).write_text(new_text, encoding='utf-8')
+    result = store_file('put', str(THEME / MARKS_PATH), MARKS_PATH)
+    out = (result.stdout or b'').decode() + (result.stderr or b'').decode()
+    if result.returncode or '"status":200' not in out.replace(' ', ''):
+        (THEME / MARKS_PATH).write_text(local_text, encoding='utf-8')
+        sys.exit(f'O envio ao preview falhou; arquivo local restaurado. Resposta: {out[:300]}')
+    ok = read_marks_text('remote') == new_text
+    print('\nSalvo no preview e relido: ' + ('OK, igual ao local.' if ok else 'ATENÇÃO — a releitura não bate; não reenvie, investigue.'))
+    print('A loja publicada só muda quando o tema for publicado.')
+    if not ok:
+        sys.exit(1)
+
+
+def cmd_salvar(raiz, path, slug_arg, aplicar):
+    text = sys.stdin.read() if path == '-' else Path(path).read_text(encoding='utf-8')
+    slug, points = parse_request(text)
+    slug = slug_arg or slug
+    if not slug:
+        sys.exit('Não sei de qual cama são as marcações: informe o slug.')
+    if slug_arg and slug_arg != (parse_request(text)[0] or slug_arg):
+        sys.exit(f'As marcações são da cama "{parse_request(text)[0]}", não de "{slug_arg}".')
+    _root, cama = find_cama(raiz, slug)
+    points = normalize(points)
+    produtos = [p['produto'] for p in points]
+    if len(set(produtos)) != len(produtos):
+        sys.exit('Há produto repetido nas marcações.')
+    items = {p['slug'] for p in products(cama['id'])}
+    missing = [p for p in produtos if p not in items]
+    if missing:
+        print(f'⚠ Fora da subcategoria (não vão aparecer até o produto entrar nela): {", ".join(missing)}\n')
+    print(f'Cama: {cama["name"]} ({slug})')
+    write_marks(slug, points, aplicar)
+
+
+def cmd_tirar(raiz, slug, aplicar):
+    find_cama(raiz, slug)
+    write_marks(slug, [], aplicar)
+
+
+def main(argv):
+    raiz = 'cama-do-mes'
+    if '--raiz' in argv:
+        i = argv.index('--raiz')
+        raiz = argv[i + 1]
+        del argv[i:i + 2]
+    aplicar = '--aplicar' in argv
+    argv = [a for a in argv if a != '--aplicar']
+    if not argv:
+        sys.exit(__doc__)
+    cmd, args = argv[0], argv[1:]
+    if cmd == 'status' and not args:
+        return cmd_status(raiz)
+    if cmd == 'ver' and len(args) == 1:
+        return cmd_ver(raiz, args[0])
+    if cmd == 'pontos' and len(args) == 1:
+        return cmd_pontos(args[0])
+    if cmd == 'salvar-pontos' and len(args) in (1, 2):
+        return cmd_salvar(raiz, args[0], args[1] if len(args) == 2 else '', aplicar)
+    if cmd == 'tirar-pontos' and len(args) == 1:
+        return cmd_tirar(raiz, args[0], aplicar)
+    sys.exit(__doc__)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

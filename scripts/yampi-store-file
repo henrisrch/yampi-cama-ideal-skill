@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Official Yampi theme API. Credentials: ALIAS, USER_TOKEN, USER_SECRET_KEY.
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/yampi-store-file info
+  scripts/yampi-store-file list [folder]
+  scripts/yampi-store-file get-current <remote-path> [--live]
+  scripts/yampi-store-file get-history <remote-path>
+  scripts/yampi-store-file get <remote-path>  (history alias)
+  scripts/yampi-store-file put <local-file> [remote-path]
+  scripts/yampi-store-file create <local-file> [remote-path]
+  scripts/yampi-store-file delete <remote-path>
+  scripts/yampi-store-file publish
+
+All API operations target preview. Only get-current --live reads production
+via the public CDN. get-current writes raw bytes; other commands return JSON.
+put updates; create creates a new file. Saving does not publish the theme.
+EOF
+}
+
+load_env() {
+  local env_file script_directory
+  script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+  for env_file in .env .env.txt "$script_directory/.env" "$script_directory/.env.txt"; do
+    if [[ -f "$env_file" ]]; then
+      set -a
+      # shellcheck disable=SC1090
+      source <(tr -d '\r' < "$env_file")
+      set +a
+      return
+    fi
+  done
+}
+
+load_env
+[[ $# -gt 0 ]] || { usage >&2; exit 1; }
+command_name="$1"
+shift
+live=false
+if [[ "${!#}" == --live ]]; then
+  live=true
+  set -- "${@:1:$#-1}"
+fi
+if [[ "$live" == true && "$command_name" != get-current ]]; then
+  echo 'A API oficial opera somente no preview; --live só permite leitura com get-current.' >&2
+  exit 1
+fi
+[[ "${ALIAS:-}" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'ALIAS ausente ou inválido.' >&2; exit 1; }
+base_url="https://api.dooki.com.br/v2/${ALIAS}/store/theme"
+
+validate_path() {
+  if [[ -z "$1" || ${#1} -gt 255 || "$1" == /* || "$1" == *\\* || "$1" =~ (^|/)\.\.?(/|$) || "$1" == settings || "$1" == settings/* ]]; then
+    echo 'Caminho inválido: use caminho relativo fora de settings/.' >&2
+    exit 1
+  fi
+}
+request() {
+  : "${USER_TOKEN:?USER_TOKEN ausente}" "${USER_SECRET_KEY:?USER_SECRET_KEY ausente}"
+  curl --fail-with-body --silent --show-error --connect-timeout 20 --max-time 180 \
+    --header "User-Token: $USER_TOKEN" --header "User-Secret-Key: $USER_SECRET_KEY" \
+    --header 'Content-Type: application/json' "$@"
+}
+case "$command_name" in
+  info|publish)
+    [[ $# -eq 0 ]] || { usage >&2; exit 1; }
+    if [[ "$command_name" == info ]]; then
+      request "$base_url"
+    else
+      request --request POST "$base_url/publish"
+    fi
+    ;;
+  list)
+    [[ $# -le 1 ]] || { usage >&2; exit 1; }
+    query=()
+    if [[ $# -eq 1 ]]; then validate_path "$1"; query=(--data-urlencode "folder=$1"); fi
+    request --get "$base_url/files" "${query[@]}"
+    ;;
+  get-current|get|get-history|delete)
+    [[ $# -eq 1 ]] || { usage >&2; exit 1; }
+    validate_path "$1"
+    if [[ "$live" == true ]]; then
+      encoded_path="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1")"
+      curl --fail --silent --show-error --connect-timeout 20 --max-time 90 \
+        "https://openstore-production-assets.yampi.io/${ALIAS}/templates/rocket/${encoded_path}"
+    elif [[ "$command_name" == get-current ]]; then
+      request --get "$base_url/files/content" --data-urlencode "path=$1" | python3 -c '
+import base64, json, sys
+result = json.load(sys.stdin)
+content = result.get("data")
+if result.get("status") != 200 or not isinstance(content, str):
+    sys.exit("Resposta inválida ao ler conteúdo do tema.")
+if content.startswith("data:image/") and ";base64," in content:
+    sys.stdout.buffer.write(base64.b64decode(content.split(",", 1)[1], validate=True))
+else:
+    sys.stdout.buffer.write(content.encode("utf-8"))
+'
+    elif [[ "$command_name" == delete ]]; then
+      request --request DELETE --get "$base_url/files" --data-urlencode "path=$1"
+    else
+      request --get "$base_url/files/versions" --data-urlencode "path=$1"
+    fi
+    ;;
+  put|create)
+    [[ $# -ge 1 && $# -le 2 ]] || { usage >&2; exit 1; }
+    local_file="$1"
+    remote_path="${2:-$1}"
+    validate_path "$remote_path"
+    [[ -f "$local_file" ]] || { echo "Arquivo local não encontrado: $local_file" >&2; exit 1; }
+    method=PUT
+    [[ "$command_name" != create ]] || method=POST
+    python3 -c '
+import base64, json, pathlib, sys
+json.dump({"path": sys.argv[2], "content": base64.b64encode(pathlib.Path(sys.argv[1]).read_bytes()).decode("ascii")}, sys.stdout)
+' "$local_file" "$remote_path" | request --request "$method" "$base_url/files" --data-binary @-
+    ;;
+  *) usage >&2; exit 1 ;;
+esac
