@@ -1,0 +1,36 @@
+{#
+    Exemplo de uso do <cama-ideal-detail> na página da subcategoria (a cama).
+    Adapte ao seu tema: aqui, camaIdealPath = content.data.slug quebrado em
+    ["raiz", "subcategoria"]. As marcações "+" vêm de
+    elements/cama-ideal-marcacoes.twig.
+
+    Registre o componente em elements/scripts/components.twig:
+      <script type='module' src='{{ '/components/cama-ideal/CamaIdealDetail.js' | components_url }}'></script>
+#}
+{% import 'elements/cama-ideal-marcacoes.twig' as pontos %}
+
+{% set camaIdealRoot = camaIdealPath[0] %}
+{% set camaIdealChild = camaIdealPath[1] ?? '' %}
+
+{# Capa da subcategoria, lida da árvore do menu (sorted_categories). #}
+{% set camaCover = '' %}
+{% for category in sorted_categories %}
+    {% if category.slug == camaIdealRoot %}
+        {% for cama in category.children.data ?? [] %}
+            {% if cama.slug == camaIdealChild %}
+                {% set camaCover = cama.category_cover %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+
+{% if camaIdealChild %}
+    <div style="--rd-ci-checkbox: url({{ '/assets/images/ci-checkbox.png' | assets_url }});" class="rd-ci -detail">
+        <cama-ideal-detail
+            category-path="{{ content.data.slug }}"
+            title="{{ content.data.meta.name }}"
+            cover="{{ camaCover }}"
+            :hotspots-by-slug="{{ pontos.marcacoes() }}"
+        ></cama-ideal-detail>
+    </div>
+{% endif %}

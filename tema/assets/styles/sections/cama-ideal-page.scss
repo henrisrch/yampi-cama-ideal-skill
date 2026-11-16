@@ -1,0 +1,883 @@
+@import "../global/mixins/_index";
+
+/*
+ * Redesign 2026 — páginas da Cama Ideal (sections/category/cama_ideal_content.twig).
+ *   .rd-ci.-list   → lista das camas  (Figma "CAMA IDEAL 1 - MOBILE" 2013:4327)
+ *   .rd-ci.-detail → detalhe da cama  (Figma "CAMA IDEAL 2 - MOBILE" 650:5723)
+ * Handoff aprovado: lista 729:9077/10196 e detalhe 729:9178/10246.
+ */
+@mixin rd-ci-button-reset {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    font-family: var(--fonts-texts-family);
+    cursor: pointer;
+}
+
+.rd-ci {
+    max-width: 1300px;
+    margin: 0 auto;
+    font-family: var(--fonts-texts-family);
+    font-weight: var(--font-medium);
+    color: var(--brand-01);
+
+    /* Breadcrumb: "Página inicial › Cama Ideal" */
+    .breadcrumbs.container {
+        display: block; /* o tema esconde o breadcrumb no mobile */
+        max-width: none;
+        padding: 16px;
+        font-size: 12px;
+        font-weight: var(--font-medium);
+        line-height: 1.2;
+
+        @include desktop {
+            padding: 24px 40px;
+        }
+
+        ul.crumbs {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+        }
+
+        li a {
+            color: var(--roxo-01);
+        }
+
+        li:last-child a {
+            color: var(--roxo-04);
+        }
+    }
+
+    /* no detalhe o último nível é a categoria-mãe: continua clicável */
+    &.-detail .breadcrumbs li:last-child a {
+        pointer-events: auto;
+    }
+
+    &.-list .breadcrumbs.container {
+        @include mobile {
+            padding-bottom: 0;
+        }
+    }
+
+    .breadcrumb-divider {
+        display: inline;
+        width: auto;
+        height: auto;
+        margin: 0;
+        background: none;
+        color: var(--roxo-04);
+
+        &::before {
+            content: "›";
+        }
+    }
+
+    /* ---------- Lista das camas ---------- */
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 24px 16px 40px;
+
+        @include desktop {
+            gap: 40px;
+            padding: 16px 40px 80px;
+        }
+    }
+
+    &__heading {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+
+    &__title {
+        @include rd-title(22px, 32px);
+        line-height: 1;
+    }
+
+    &__subtitle {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.2;
+        color: var(--roxo-03);
+
+        @include desktop {
+            font-size: 14px;
+        }
+    }
+}
+
+.rd-ci-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    @include desktop {
+        gap: 40px;
+    }
+}
+
+.rd-ci-highlight {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+
+    @include desktop {
+        flex-direction: row;
+    }
+
+    &:hover {
+        text-decoration: none;
+    }
+
+    &__media {
+        height: 240px;
+        background-color: var(--neutral-200);
+
+        @include desktop {
+            flex: 1 1 60%;
+            height: 420px;
+        }
+
+        img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 24px;
+        background-color: var(--roxo-01);
+
+        @include desktop {
+            flex: 1 1 40%;
+            justify-content: flex-end;
+            box-sizing: border-box;
+            padding: 40px;
+        }
+    }
+
+    &__eyebrow,
+    &__summary {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.2;
+        color: var(--roxo-04);
+
+        @include desktop {
+            font-size: 14px;
+        }
+    }
+
+    &__eyebrow {
+        text-transform: uppercase;
+    }
+
+    &__name {
+        @include rd-title(24px, 40px);
+        line-height: 0.92;
+        color: var(--lilas-01);
+    }
+}
+
+.rd-ci-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 16px;
+
+    @include desktop {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 40px 24px;
+    }
+}
+
+.rd-ci-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: none;
+    }
+
+    &__media {
+        aspect-ratio: 177 / 220;
+        background-color: var(--neutral-200);
+
+        img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    &__name {
+        margin: 0;
+        font-family: var(--fonts-texts-family);
+        font-size: 14px;
+        font-weight: var(--font-medium);
+        line-height: 1.3;
+        text-transform: none;
+        color: var(--brand-01);
+
+        @include desktop {
+            font-size: 16px;
+        }
+    }
+
+    &__summary {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.2;
+        color: var(--roxo-03);
+
+        @include desktop {
+            font-size: 14px;
+        }
+    }
+}
+
+/* Botão terciário grande ("Carregar mais") */
+.rd-ci-more {
+    @include rd-ci-button-reset;
+    align-self: center;
+    padding: 4px 0;
+    font-size: 14px;
+    font-weight: var(--font-medium);
+    line-height: 1.2;
+    color: var(--roxo-02);
+}
+
+/* ---------- Detalhe da cama ---------- */
+
+.rd-ci-detail {
+    &__main {
+        @include desktop {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 480px);
+            align-items: start;
+            gap: 56px;
+            padding: 0 40px;
+        }
+    }
+}
+
+.rd-ci-photo {
+    position: relative;
+    aspect-ratio: 402 / 469;
+    background-color: var(--neutral-200);
+
+    @include desktop {
+        position: sticky;
+        top: 24px;
+    }
+
+    &__image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+/* Marcação "+" sobre a foto (32px, com o "+" de 12px e traço de 1,5px) */
+.rd-ci-hotspot {
+    @include rd-ci-button-reset;
+    position: absolute;
+    z-index: 2;
+    display: block;
+    box-sizing: border-box;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    overflow: hidden;
+    background-color: var(--neutral-100);
+    font-size: 0;
+    line-height: 0;
+    transform: translate(-50%, -50%);
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        background-color: var(--roxo-01);
+        transform: translate(-50%, -50%);
+    }
+
+    &::before {
+        width: 12px;
+        height: 1.5px;
+    }
+
+    &::after {
+        width: 1.5px;
+        height: 12px;
+    }
+}
+
+.rd-ci-hotspot-card {
+    --rd-ci-card-width: min(260px, calc(100% - 16px));
+
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    gap: 12px;
+    box-sizing: border-box;
+    width: var(--rd-ci-card-width);
+    min-height: 76px;
+    padding: 11px;
+    border: 1px solid var(--neutral-200);
+    background-color: var(--neutral-100);
+    text-decoration: none;
+    transform: translateY(-50%);
+
+    &:hover {
+        text-decoration: none;
+    }
+
+    &__thumb {
+        flex: 0 0 52px;
+        width: 52px;
+        height: 52px;
+        background-color: var(--neutral-200);
+
+        img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &__info {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+        padding: 4px 0;
+        font-size: 13px;
+        font-weight: var(--font-medium);
+        line-height: normal;
+        color: var(--roxo-01);
+    }
+}
+
+.rd-ci-build {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px 16px 40px;
+
+    @include desktop {
+        padding: 0 0 56px;
+    }
+
+    &__heading {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    &__title {
+        margin: 0;
+        font-family: var(--fonts-texts-family);
+        font-size: 20px;
+        font-weight: var(--font-medium);
+        line-height: 1.4;
+        text-transform: none;
+        color: var(--brand-01);
+
+        @include desktop {
+            font-size: 28px;
+        }
+    }
+
+    &__summary {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.2;
+        color: var(--roxo-03);
+
+        @include desktop {
+            font-size: 14px;
+        }
+    }
+
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 12px;
+        font-weight: var(--font-regular);
+        line-height: normal;
+        white-space: nowrap;
+    }
+
+    &__total {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--roxo-03);
+
+        strong {
+            font-size: 16px;
+            font-weight: var(--font-bold);
+            color: var(--roxo-01);
+        }
+    }
+
+    /* Botão de compra grande */
+    &__buy {
+        @include rd-ci-button-reset;
+        width: 100%;
+        height: 48px;
+        padding: 0 24px;
+        background-color: var(--brand-04);
+        font-size: 14px;
+        font-weight: var(--font-medium);
+        line-height: 1.2;
+        text-transform: uppercase;
+        color: var(--roxo-01);
+        transition: opacity 0.2s;
+
+        &:hover {
+            opacity: 0.9;
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        svg {
+            fill: var(--roxo-01);
+        }
+    }
+}
+
+.rd-ci-items {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.rd-ci-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--neutral-200);
+
+    /* a última peça não tem linha: logo abaixo vem o total */
+    &:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    &__row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    &__check {
+        appearance: none;
+        flex: 0 0 20px;
+        box-sizing: border-box;
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        border: 1px solid var(--neutral-200);
+        border-radius: 0;
+        background-color: var(--neutral-50);
+        cursor: pointer;
+
+        &:checked {
+            border: 0;
+            background-image: var(--rd-ci-checkbox);
+            background-size: 20px 20px;
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+        }
+    }
+
+    &__info {
+        display: flex;
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        line-height: normal;
+    }
+
+    &__top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        font-size: 14px;
+        color: var(--roxo-01);
+    }
+
+    &__name {
+        flex: 1 1 0;
+        min-width: 0;
+        font-weight: var(--font-medium);
+        cursor: pointer;
+    }
+
+    &__price {
+        flex: 0 0 auto;
+        min-width: 84px;
+        font-weight: var(--font-bold);
+        text-align: right;
+        white-space: nowrap;
+
+        &.-unavailable {
+            font-weight: var(--font-regular);
+        }
+    }
+
+    &__variant {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: var(--font-regular);
+        color: var(--roxo-03);
+        white-space: pre;
+    }
+
+    &__change {
+        @include rd-ci-button-reset;
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-self: flex-start;
+        width: auto;
+        min-width: 0;
+        height: auto;
+        min-height: 0;
+        font-size: 12px;
+        font-weight: var(--font-regular);
+        line-height: normal;
+        text-decoration: underline;
+        text-underline-position: from-font;
+        white-space: nowrap;
+        color: var(--roxo-01);
+
+        // O tema da Yampi atribui dimensões de botão grande a `.-clean`.
+        // Aqui a ação precisa ocupar somente a largura de “trocar”, como no
+        // Figma, para não desenhar sublinhados vazios abaixo da linha.
+        &.-clean {
+            width: auto;
+            height: auto;
+        }
+    }
+
+    &.-editing {
+        gap: 10px;
+    }
+
+    &.-unselected &__info {
+        opacity: 0.5;
+    }
+
+    &.-unselected &__price {
+        text-decoration: line-through;
+    }
+
+    &.-unavailable &__price {
+        text-decoration: none;
+    }
+}
+
+/* Painel do "trocar": cor e tamanho da peça */
+.rd-ci-picker {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--neutral-200);
+    background-color: var(--neutral-100);
+
+    &__group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+
+    &__label {
+        margin: 0;
+        font-size: 12px;
+        font-weight: var(--font-medium);
+        line-height: 1.2;
+        color: var(--roxo-03);
+
+        strong {
+            font-weight: var(--font-bold);
+        }
+    }
+
+    &__options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    &__swatch {
+        @include rd-ci-button-reset;
+        box-sizing: border-box;
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--neutral-200);
+        border-radius: 60px;
+
+        &.-selected {
+            border-color: var(--roxo-01);
+        }
+    }
+
+    &__option {
+        @include rd-ci-button-reset;
+        padding: 8px 10px;
+        border: 1px solid var(--neutral-200);
+        background-color: var(--neutral-50);
+        font-size: 12px;
+        font-weight: var(--font-medium);
+        line-height: 1.2;
+        white-space: nowrap;
+        color: var(--roxo-01);
+
+        &.-selected {
+            border-color: var(--roxo-01);
+            background-color: var(--roxo-01);
+            color: var(--neutral-50);
+        }
+    }
+
+    &__swatch,
+    &__option {
+        &:focus-visible {
+            outline: 2px solid var(--roxo-01);
+            outline-offset: 2px;
+        }
+
+        &:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+    }
+
+    /* Botão secundário pequeno */
+    &__confirm {
+        @include rd-ci-button-reset;
+        height: 40px;
+        padding: 0 16px;
+        background-color: var(--neutral-300);
+        font-size: 12px;
+        font-weight: var(--font-medium);
+        line-height: 1.2;
+        text-transform: uppercase;
+        color: var(--roxo-01);
+    }
+}
+
+/* Bloco "O que transforma…" — o conteúdo vem da descrição da subcategoria */
+.rd-ci-about {
+    padding: 0 16px 48px;
+
+    @include desktop {
+        padding: 0 40px 80px;
+    }
+
+    &__box {
+        padding: 24px;
+        background-color: var(--neutral-100);
+        font-size: 12px;
+        font-weight: var(--font-medium);
+        line-height: 1.35;
+        color: var(--roxo-03);
+
+        @include desktop {
+            padding: 40px;
+            font-size: 14px;
+        }
+
+        > * {
+            margin: 0;
+        }
+
+        > * + * {
+            margin-top: 16px;
+        }
+
+        h2,
+        h3 {
+            @include rd-title(20px, 28px);
+            line-height: 1.27;
+
+            + * {
+                margin-top: 20px;
+            }
+        }
+
+        h4,
+        p > strong:first-child,
+        p > b:first-child {
+            display: block;
+            margin-bottom: 6px;
+            font-family: var(--fonts-texts-family);
+            font-size: inherit;
+            font-weight: var(--font-medium);
+            text-transform: uppercase;
+            color: var(--brand-01);
+        }
+
+        h4 + * {
+            margin-top: 0;
+        }
+    }
+}
+
+/* Lista conforme handoff aprovado, com nomes, capas e resumos do cadastro. */
+.rd-ci.-list .rd-ci__body { padding-bottom: 40px; }
+.rd-ci.-list .rd-ci__heading { gap: 8px; }
+.rd-ci.-list .rd-ci__title { font-family: 'Brygada 1918',serif; font-weight: 600; font-style: italic; font-size: 22px; line-height: 1; margin: 0; }
+.rd-ci.-list .rd-ci__subtitle { font-family: Inter,sans-serif; font-weight: 500; }
+.rd-ci.-list .rd-ci-card__name { font-size: 14px; line-height: 1.35; }
+.rd-ci.-list .rd-ci-card__summary { font-size: 12px; line-height: 1.4; }
+.rd-ci.-list .rd-ci-more { font-family: Inter,sans-serif; font-size: 12px; font-weight: 500; line-height: 1.2; }
+.rd-ci.-list .breadcrumbs.container { margin: 0; font-size: 10px; line-height: 1.2; }
+@media only screen and (min-width: 701px) {
+    .rd-ci.-list .breadcrumbs.container { padding: 24px 56px 0; font-size: 14px; line-height: 17px; }
+    .rd-ci.-list .rd-ci__body { padding: 32px 56px 56px; gap: 40px; }
+    .rd-ci.-list .rd-ci__heading { gap: 16px; }
+    .rd-ci.-list .rd-ci__title { font-size: 32px; line-height: .92; }
+    .rd-ci.-list .rd-ci-list { gap: 55px; }
+    .rd-ci.-list .rd-ci-highlight { height: 429px; background: #4f0f22; }
+    .rd-ci.-list .rd-ci-highlight__media { flex: 1 1 62.5%; height: 429px; order: 1; min-width: 0; }
+    .rd-ci.-list .rd-ci-highlight__text { position: relative; flex: 0 0 37.5%; min-width: 0; padding: 40px; order: 0; gap: 24px; justify-content: flex-end; }
+    .rd-ci.-list .rd-ci-highlight__eyebrow { position: absolute; top: 54px; left: 40px; font-size: 14px; line-height: 1.35; }
+    .rd-ci.-list .rd-ci-highlight__name { font-size: 56px; line-height: .92; overflow-wrap: break-word; }
+    .rd-ci.-list .rd-ci-highlight__summary { max-width: 321px; font-size: 18px; line-height: 1.2; }
+    .rd-ci.-list .rd-ci-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 40px 20px; }
+    .rd-ci.-list .rd-ci-card__media { aspect-ratio: 382/474; }
+}
+
+.rd-ci .breadcrumbs li a { display: block; padding: 0; line-height: inherit; }
+.rd-ci.-detail .breadcrumbs.container { margin: 0; font-size: 10px; line-height: 1.2; }
+.rd-ci.-detail .rd-ci-hotspot { border-radius: 999px; }
+.rd-ci.-detail .rd-ci-hotspot::before { height: 2px; }
+.rd-ci.-detail .rd-ci-hotspot::after { width: 2px; }
+.rd-ci.-detail .rd-ci-hotspot-card { padding: 12px; }
+.rd-ci.-detail .rd-ci-hotspot-card__info { padding: 0; justify-content: center; font-size: 12px; line-height: 1.4; }
+.rd-ci.-detail .rd-ci-build__title { font-family: Inter,sans-serif; font-size: 20px; font-weight: 500; line-height: 1.4; }
+.rd-ci.-detail .rd-ci-item__top { line-height: 1.2; }
+.rd-ci.-detail .rd-ci-item__variant { line-height: 1.4; }
+.rd-ci.-detail .rd-ci-picker { gap: 16px; padding: 16px; }
+.rd-ci.-detail .rd-ci-picker__options { gap: 8px; }
+.rd-ci.-detail .rd-ci-picker__option { box-sizing: border-box; height: 30px; padding: 8px 10px; }
+@media only screen and (min-width:701px) {
+    .rd-ci.-detail .breadcrumbs.container { padding: 24px 56px 23px; font-size: 14px; line-height: 17px; }
+    .rd-ci.-detail .rd-ci-detail__main { grid-template-columns: minmax(0,634px) minmax(0,1fr); gap: 32px; padding: 0 56px; }
+    .rd-ci.-detail .rd-ci-photo { height: auto; aspect-ratio: 634/740; top: 24px; }
+    .rd-ci.-detail .rd-ci-picker__confirm { height: 36px; }
+    .rd-ci.-detail .rd-ci-about { padding: 72px 0 170px; }
+    .rd-ci.-detail .rd-ci-about__box { width: 800px; max-width: calc(100% - 112px); padding: 40px; margin: 0 auto; box-sizing: border-box; font-size: 14px; }
+}
+
+/* Bloco "O que transforma…" estruturado (handoff 729:9283 desktop / 729:10363 mobile).
+   Título e labels em #5c1a2e, como no handoff (sem token equivalente). */
+.rd-ci-about__box.-structured {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    word-break: break-word;
+
+    > * + * { margin-top: 0; }
+
+    .rd-ci-about__question {
+        margin: 0;
+        font-family: 'Brygada 1918', serif;
+        font-size: 20px;
+        font-style: italic;
+        font-weight: 600;
+        line-height: 1.27;
+        color: #5c1a2e;
+    }
+
+    .rd-ci-about__items {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .rd-ci-about__item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .rd-ci-about__label,
+    .rd-ci-about__text {
+        margin: 0;
+        font-family: Inter, sans-serif;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 1.35;
+    }
+
+    .rd-ci-about__label {
+        text-transform: uppercase;
+        color: #5c1a2e;
+    }
+
+    .rd-ci-about__text { color: var(--roxo-03); }
+
+    @include desktop {
+        gap: 32px;
+
+        .rd-ci-about__question { font-size: 28px; }
+        .rd-ci-about__items { gap: 24px; }
+        .rd-ci-about__item { gap: 10px; }
+
+        .rd-ci-about__label,
+        .rd-ci-about__text { font-size: 14px; }
+    }
+}
