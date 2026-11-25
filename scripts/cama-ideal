@@ -14,19 +14,25 @@ Escrita só com --aplicar; sem ela, mostra o que mudaria.
   scripts/cama-ideal salvar-pontos <arquivo> [<slug>] [--aplicar]
         <arquivo>: texto copiado da ferramenta ("Salvar marcações da …" + JSON)
   scripts/cama-ideal tirar-pontos <slug> [--aplicar]
+  scripts/cama-ideal criar <arquivo> [--aplicar]
+        <arquivo>: texto copiado da ferramenta ("Criar cama nova …" + JSON) ou JSON do modelo
+        cria (ou completa) a subcategoria da cama: nome, slug, resumo,
+        "O que transforma…", capa, ordem, destaque e vincula os produtos.
+        Modelo em skills/cama-ideal/modelo-cama-nova.json.
 
 Opção global: --raiz <slug da categoria Cama Ideal> (padrão: cama-do-mes).
 Enviar ao preview não publica o tema: a loja publicada só muda ao publicar.
 """
 import difflib
-import os
 import html
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -323,6 +329,301 @@ def cmd_tirar(raiz, slug, aplicar):
     write_marks(slug, [], aplicar)
 
 
+# ---------- cama nova ----------
+
+SLUG_RE = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
+SPEC_KEYS = {'nome', 'slug', 'resumo', 'pergunta', 'itens', 'capa', 'produtos', 'destaque', 'ordem', 'ativa'}
+
+
+def load_spec(path):
+    text = sys.stdin.read() if path == '-' else Path(path).read_text(encoding='utf-8')
+    start = text.find('{')  # aceita o texto copiado da ferramenta: "Criar cama nova …:" + JSON
+    try:
+        spec, _end = json.JSONDecoder().raw_decode(text[start:]) if start >= 0 else (None, 0)
+    except json.JSONDecodeError as error:
+        sys.exit(f'A ficha da cama está incompleta ({error}). Copie de novo na ferramenta.')
+    if not isinstance(spec, dict):
+        sys.exit('O arquivo da cama precisa ser um objeto JSON (veja o modelo).')
+    return validate_spec(spec)
+
+
+def validate_spec(spec):
+    """Confere o formato e devolve a especificação normalizada; erros em pt-BR."""
+    errors = []
+    extra = set(spec) - SPEC_KEYS - {'_instrucoes'}
+    if extra:
+        errors.append(f'campos desconhecidos: {", ".join(sorted(extra))}')
+    nome = str(spec.get('nome') or '').strip()
+    slug = str(spec.get('slug') or '').strip()
+    resumo = str(spec.get('resumo') or '').strip()
+    pergunta = str(spec.get('pergunta') or '').strip()
+    capa = str(spec.get('capa') or '').strip()
+    if not nome:
+        errors.append('"nome" é obrigatório')
+    if not SLUG_RE.fullmatch(slug):
+        errors.append('"slug" é obrigatório: só letras minúsculas, números e hífens (ex.: cama-exemplo)')
+    if not resumo:
+        errors.append('"resumo" é obrigatório (1º parágrafo da página da cama)')
+    itens = []
+    for n, item in enumerate(spec.get('itens') or [], 1):
+        titulo = str((item or {}).get('titulo') or '').strip() if isinstance(item, dict) else ''
+        texto = str((item or {}).get('texto') or '').strip() if isinstance(item, dict) else ''
+        if not titulo or not texto:
+            errors.append(f'item {n} do "O que transforma…" precisa de "titulo" e "texto"')
+        itens.append({'titulo': titulo, 'texto': texto})
+    if itens and not pergunta:
+        errors.append('"pergunta" é obrigatória quando há itens (título do bloco "O que transforma…")')
+    if pergunta and not itens:
+        errors.append('"pergunta" sem "itens": inclua de 3 a 5 itens')
+    if capa and not re.match(r'https://', capa):
+        errors.append('"capa" precisa ser um link https público da foto (ou vazio)')
+    produtos = [str(p).strip() for p in spec.get('produtos') or []]
+    bad = [p for p in produtos if not SLUG_RE.fullmatch(p)]
+    if bad:
+        errors.append(f'slugs de produto inválidos: {", ".join(bad)}')
+    if len(set(produtos)) != len(produtos):
+        errors.append('há produto repetido em "produtos"')
+    ordem = spec.get('ordem')
+    if ordem is not None and (not isinstance(ordem, int) or isinstance(ordem, bool) or ordem < 0):
+        errors.append('"ordem" deve ser um número inteiro (ou ficar de fora)')
+    for key in ('destaque', 'ativa'):
+        if key in spec and not isinstance(spec[key], bool):
+            errors.append(f'"{key}" deve ser true ou false')
+    if errors:
+        sys.exit('Corrija o arquivo da cama:\n  - ' + '\n  - '.join(errors))
+    return {'nome': nome, 'slug': slug, 'resumo': resumo, 'pergunta': pergunta, 'itens': itens,
+            'capa': capa, 'produtos': produtos, 'destaque': spec.get('destaque', False),
+            'ordem': ordem, 'ativa': spec.get('ativa', True)}
+
+
+def build_description(spec):
+    """Mesmo formato lido por description_parts e pelo CamaIdealDetail.vue (sem <section> nem data-*)."""
+    esc = lambda text: html.escape(text, quote=False)
+    out = f'<p>{esc(spec["resumo"])}</p>'
+    if spec['pergunta']:
+        out += f'<h3>{esc(spec["pergunta"])}</h3>'
+        for item in spec['itens']:
+            paragraphs = [re.sub(r'\s+', ' ', part).strip() for part in re.split(r'\n\s*\n', item['texto'])]
+            paragraphs = [part for part in paragraphs if part]
+            out += f'<p><strong>{esc(item["titulo"])}</strong> {esc(paragraphs[0])}</p>'
+            out += ''.join(f'<p>{esc(part)}</p>' for part in paragraphs[1:])
+    return out
+
+
+def all_products():
+    found, page = [], 1
+    while True:
+        batch = api('GET', f'catalog/products?limit=100&page={page}')
+        found += batch
+        if len(batch) < 100 or page >= 20:
+            return found
+        page += 1
+
+
+PRODUCT_INCLUDE = 'brand,texts,seo,extras,categories,variations,collections,skus'
+
+
+def rel(product, name):
+    value = (product.get(name) or {}).get('data')
+    return value if value is not None else ({} if name in ('brand', 'texts', 'seo', 'extras') else [])
+
+
+def product_full(product_id):
+    """Produto com as relações (include; '.' entra um nível, ex.: skus.images)."""
+    return api('GET', f'catalog/products/{product_id}?include={PRODUCT_INCLUDE}')
+
+
+def product_snapshot(product):
+    """Tudo o que a leitura mostra e o PUT pode alterar — comparado antes/depois."""
+    texts, seo, extras = rel(product, 'texts'), rel(product, 'seo'), rel(product, 'extras')
+    return {
+        **{k: product.get(k) for k in ('name', 'slug', 'active', 'searchable', 'simple', 'is_digital', 'priority')},
+        'brand_id': rel(product, 'brand').get('id'),
+        **{k: texts.get(k) for k in ('description', 'specifications', 'measures')},
+        **{k: seo.get(k) for k in ('seo_title', 'seo_description', 'seo_keywords')},
+        'search_terms': extras.get('search_terms'),
+        'variations_ids': sorted(v['id'] for v in rel(product, 'variations')),
+        'collections_ids': sorted(c['id'] for c in rel(product, 'collections')),
+        'categories_ids': sorted(c['id'] for c in rel(product, 'categories')),
+        'skus': sorted((k['id'], k['sku']) for k in rel(product, 'skus')),
+    }
+
+
+def product_put_payload(product, categories_ids):
+    """PUT completo a partir da leitura com include; sem `skus` (omitido preserva os SKUs)."""
+    snap = product_snapshot(product)
+    payload = {k: snap[k] for k in ('name', 'slug', 'active', 'searchable', 'simple', 'is_digital', 'priority',
+                                    'brand_id', 'description', 'specifications', 'measures',
+                                    'seo_title', 'seo_description', 'search_terms',
+                                    'variations_ids', 'collections_ids')}
+    payload['categories_ids'] = sorted(categories_ids)
+    return {k: v for k, v in payload.items() if v is not None}
+
+
+def unlink_product(product_id, cama_id):
+    before = product_full(product_id)
+    snap = product_snapshot(before)
+    if cama_id not in snap['categories_ids']:
+        return 'já não estava na cama'
+    remaining = [c for c in snap['categories_ids'] if c != cama_id]
+    api('PUT', f'catalog/products/{product_id}', product_put_payload(before, remaining))
+    after = product_snapshot(product_full(product_id))
+    expected = {**snap, 'categories_ids': sorted(remaining)}
+    diff = [k for k in expected if after.get(k) != expected[k]]
+    if diff:
+        sys.exit(f'ATENÇÃO — o produto {snap["slug"]} mudou além da categoria ({", ".join(diff)}). '
+                 'Parei sem mexer nos próximos; não reenvie, investigue.')
+    return 'tirado da cama e relido OK'
+
+
+def same_image(url, cover):
+    """category_cover pode vir como nome de arquivo ou URL completa."""
+    if not url or not cover:
+        return False
+    name = lambda value: value.split('?')[0].rstrip('/').rsplit('/', 1)[-1]
+    return name(url) == name(cover)
+
+
+def link_product(product_id, cama_id):
+    before = product_full(product_id)
+    snap = product_snapshot(before)
+    if cama_id in snap['categories_ids']:
+        return 'já estava na cama'
+    api('PUT', f'catalog/products/{product_id}', product_put_payload(before, snap['categories_ids'] + [cama_id]))
+    after = product_snapshot(product_full(product_id))
+    expected = {**snap, 'categories_ids': sorted(snap['categories_ids'] + [cama_id])}
+    diff = [k for k in expected if after.get(k) != expected[k]]
+    if diff:
+        sys.exit(f'ATENÇÃO — o produto {snap["slug"]} mudou além da categoria ({", ".join(diff)}). '
+                 'Parei sem mexer nos próximos; não reenvie, investigue.')
+    return 'vinculado e relido OK'
+
+
+def url_ok(url):
+    try:
+        request = urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'cama-ideal-check'})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.status == 200 and response.headers.get('Content-Type', '').startswith('image/')
+    except Exception:
+        return False
+
+
+def cmd_criar(raiz, path, aplicar):
+    spec = load_spec(path)
+    cats = categories()
+    root = next((c for c in cats if c['slug'] == raiz), None)
+    if not root:
+        sys.exit(f'Categoria raiz "{raiz}" não encontrada. Use --raiz <slug>.')
+    siblings = [c for c in cats if c.get('parent_id') == root['id']]
+    same_slug = next((c for c in cats if c['slug'] == spec['slug']), None)
+    if same_slug and same_slug.get('parent_id') != root['id']:
+        sys.exit(f'O slug "{spec["slug"]}" já é usado pela categoria "{same_slug["name"]}", fora da Cama Ideal. Escolha outro slug.')
+    same_name = [c for c in siblings if c['name'].strip().lower() == spec['nome'].lower() and c is not same_slug]
+    if same_name:
+        sys.exit(f'Já existe uma cama chamada "{same_name[0]["name"]}" ({same_name[0]["slug"]}). Use o mesmo slug para completá-la, ou outro nome.')
+
+    description = build_description(spec)
+    ordem = spec['ordem'] if spec['ordem'] is not None else (
+        same_slug.get('order') if same_slug else max([c.get('order') or 0 for c in siblings] + [0]) + 1)
+    payload = {'active': spec['ativa'], 'name': spec['nome'], 'slug': spec['slug'], 'parent_id': root['id'],
+               'featured': spec['destaque'], 'order': ordem, 'description': description,
+               'seo_description': spec['resumo'][:160]}
+    if same_slug:  # completar uma cama existente: preserva os demais campos
+        payload = {**{k: same_slug.get(k) for k in PUT_FIELDS if k in same_slug}, **payload}
+
+    current_items = products(same_slug['id']) if same_slug else []
+    current_slugs = [p['slug'] for p in current_items]
+    to_remove = [p for p in current_items if p['slug'] not in spec['produtos']]
+    by_slug = {p['slug']: p for p in all_products()} if spec['produtos'] else {}
+    missing = [p for p in spec['produtos'] if p not in by_slug]
+    old_description = (same_slug.get('description') or '').strip() if same_slug else ''
+    capa_changes = bool(spec['capa']) and not (same_slug and same_image(spec['capa'], same_slug.get('category_cover')))
+    capa_ok = url_ok(spec['capa']) if spec['capa'] else None
+    other_featured = [c['name'] for c in siblings if c.get('featured') and c is not same_slug]
+
+    print(('Alterar a cama existente' if same_slug else 'Criar a cama nova') + f' em {root["name"]} ({raiz}):\n')
+    print(f'  Nome: {spec["nome"]}')
+    print(f'  Slug: {spec["slug"]}  →  página {root.get("url", "").split("?")[0].rstrip("/")}/{spec["slug"]}')
+    print(f'  Ativa: {"sim" if spec["ativa"] else "não"} · Destaque: {"sim" if spec["destaque"] else "não"} · Ordem: {ordem}')
+    print(f'  Resumo: {spec["resumo"]}')
+    if spec['pergunta']:
+        print(f'  O que transforma: {spec["pergunta"]}')
+        for item in spec['itens']:
+            print(f'    • {item["titulo"]} — {item["texto"]}')
+    else:
+        print('  O que transforma: (sem bloco)')
+    capa_txt = spec['capa'] or '(sem capa — a foto virá de um banner com o mesmo slug, se houver)'
+    if same_slug and spec['capa'] and not capa_changes:
+        capa_txt = '(a mesma de hoje)'
+    print(f'  Capa: {capa_txt}')
+    if spec['produtos'] or to_remove:
+        print('  Peças da cama:')
+        for slug in spec['produtos']:
+            tag = '' if not same_slug else (' (já está)' if slug in current_slugs else ' (entra)')
+            print(f'    - {slug} — {by_slug[slug].get("name", "")}{tag}' if slug in by_slug else f'    - {slug} — ⚠ NÃO ENCONTRADO na loja')
+        for item in to_remove:
+            print(f'    - {item["slug"]} — {item.get("name", "")} (SAI da cama; o produto continua na loja)')
+    if same_slug:
+        if old_description == description:
+            print('\nTextos: sem mudança.')
+        else:
+            print('\nTextos — como está hoje:\n  ' + (old_description or '(vazio)'))
+            print('Textos — como vai ficar:\n  ' + description)
+    else:
+        print('\nDescrição que vai para a Yampi:\n  ' + description)
+
+    warnings = []
+    if same_slug:
+        warnings.append('a cama já existe: nome, textos e destaque serão substituídos pelos da ficha')
+        if to_remove:
+            warnings.append(f'{len(to_remove)} peça(s) vão sair desta cama (o produto não é apagado)')
+    if missing:
+        warnings.append(f'produto(s) não encontrado(s): {", ".join(missing)} — confira o slug no admin; não gravo enquanto houver')
+    if spec['capa'] and not capa_ok:
+        warnings.append('o link da capa não abriu como imagem — confira se é público e aponta direto para a foto')
+    if spec['destaque'] and other_featured:
+        warnings.append(f'já há cama em destaque ({", ".join(other_featured)}); desmarque no admin para esta ser a da vez')
+    if not 3 <= len(spec['itens']) <= 5 and spec['itens']:
+        warnings.append(f'o "O que transforma…" costuma ter de 3 a 5 itens (este tem {len(spec["itens"])})')
+    for warning in warnings:
+        print(f'\n⚠ {warning}')
+
+    if not aplicar:
+        print('\n(simulação — nada foi salvo. Rode de novo com --aplicar, depois da confirmação, para gravar na Yampi.)')
+        return
+    if spec['capa'] and not capa_ok:
+        sys.exit('\nNão gravei: corrija o link da capa ou deixe "capa" vazio.')
+    if missing:
+        sys.exit('\nNão gravei: há produto não encontrado.')
+
+    saved = api('PUT', f'catalog/categories/{same_slug["id"]}', payload) if same_slug else api('POST', 'catalog/categories', payload)
+    cama_id = saved['id']
+    if capa_changes:
+        current = api('GET', f'catalog/categories/{cama_id}')
+        api('PUT', f'catalog/categories/{cama_id}', {**{k: current.get(k) for k in PUT_FIELDS if k in current}, 'category_cover': spec['capa']})
+    check_cat = api('GET', f'catalog/categories/{cama_id}')
+    problems = []
+    for key in ('name', 'slug', 'parent_id', 'active', 'featured', 'order'):
+        if check_cat.get(key) != payload[key]:
+            problems.append(f'{key}: esperado {payload[key]!r}, ficou {check_cat.get(key)!r}')
+    if (check_cat.get('description') or '').strip() != description:
+        problems.append('descrição gravada diferente da enviada (a Yampi pode ter alterado o HTML)')
+    if spec['capa'] and not check_cat.get('category_cover'):
+        problems.append('capa não ficou gravada')
+    print(f'\nGravado na Yampi (id {cama_id}) e relido: ' + ('OK.' if not problems else 'ATENÇÃO — não reenvie, investigue:'))
+    for problem in problems:
+        print(f'  ⚠ {problem}')
+    if problems:
+        sys.exit(1)
+    for slug in spec['produtos']:
+        if slug not in current_slugs:
+            print(f'  - {slug}: {link_product(by_slug[slug]["id"], cama_id)}')
+    for item in to_remove:
+        print(f'  - {item["slug"]}: {unlink_product(item["id"], cama_id)}')
+    print('Vale na hora na loja (catálogo não depende de publicar o tema).')
+    print('\nPróximos passos: `ver ' + spec['slug'] + '` → marcar os "+" na ferramenta.')
+
+
 def main(argv):
     raiz = 'cama-do-mes'
     if '--raiz' in argv:
@@ -344,6 +645,8 @@ def main(argv):
         return cmd_salvar(raiz, args[0], args[1] if len(args) == 2 else '', aplicar)
     if cmd == 'tirar-pontos' and len(args) == 1:
         return cmd_tirar(raiz, args[0], aplicar)
+    if cmd in ('criar', 'editar') and len(args) == 1:
+        return cmd_criar(raiz, args[0], aplicar)
     sys.exit(__doc__)
 
 

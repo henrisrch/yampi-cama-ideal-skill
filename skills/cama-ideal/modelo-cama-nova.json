@@ -1,0 +1,17 @@
+{
+  "_instrucoes": "Copie para fora do repositório, preencha e rode: scripts/cama-ideal criar <arquivo> (simulação); depois da confirmação, com --aplicar. Este campo é ignorado. ordem null = depois da última cama.",
+  "nome": "Cama Exemplo",
+  "slug": "cama-exemplo",
+  "resumo": "Uma frase curta que apresenta a cama e para quem ela é.",
+  "pergunta": "O que transforma seu quarto em …?",
+  "itens": [
+    { "titulo": "Primeiro motivo", "texto": "Explicação curta, sem inventar características de produto." },
+    { "titulo": "Segundo motivo", "texto": "…" },
+    { "titulo": "Terceiro motivo", "texto": "…" }
+  ],
+  "capa": "https://images.yampi.me/assets/stores/<alias-da-loja>/uploads/images/<foto>-large.jpg",
+  "produtos": ["slug-do-produto-1", "slug-do-produto-2"],
+  "destaque": false,
+  "ordem": null,
+  "ativa": true
+}
